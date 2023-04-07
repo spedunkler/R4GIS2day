@@ -1,0 +1,25 @@
+book_filename: "EnvDataSci"
+delete_merged_file: true
+rmd_files: ["index.Rmd",
+            "introduction.Rmd",
+            # "abstraction.Rmd",
+            # "visualization.Rmd",
+            # "transformation.Rmd",
+            # "spatialDataMaps.Rmd",
+            # "spatialAnalysis.Rmd",
+            # "spatialRaster.Rmd",
+            # "spatialInterpolation.Rmd",
+            # "statistics.Rmd",
+            # "modeling.Rmd",
+            # "ImageryAnalysisClassification.Rmd",
+            # "TimeSeries.Rmd",
+            # "communication.Rmd",
+            "references.Rmd"]
+language:
+  label:
+    fig: "FIGURE "
+    tab: "TABLE "
+  ui:
+    edit: "Edit"
+    chapter_name: "Chapter "
+

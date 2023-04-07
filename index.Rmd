@@ -1,0 +1,148 @@
+---
+title: "Introduction to R for GIS"
+author: "Jerry Davis, SFSU Institute for Geographic Information Science"
+date: "`r Sys.Date()`"
+geometry: margin=1in # REMOVE FOR CRC
+bibliography: [book.bib]
+biblio-style: apalike
+link-citations: yes
+colorlinks: yes
+lot: no
+lof: yes
+site: bookdown::bookdown_site
+description: Background, methods and exercises for using R for environmental data
+  science.  The focus is on applying the R language and various libraries for data
+  abstraction, transformation, data analysis, spatial data/mapping, statistical modeling,
+  and time series, applied to environmental research. Applies exploratory data analysis
+  methods and tidyverse approaches in R, and includes contributed chapters presenting
+  research applications, with associated data and code packages.
+github-repo: iGISc/EnvDataSci
+graphics: yes
+
+---
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = "75%")
+```
+
+```{r eval=FALSE,include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+\mainmatter
+
+# Background, Goals and Data {#chapter00.chapter_section .intro_section}
+
+## R, GISc, and Goals for this book
+
+While the R language was originally developed to do statistical analysis, and create graphics in support of a focus on *exploratory data analysis*, it has been extended in many directions, one of which is geospatial. This course is designed to provide a brief introduction to the R language, especially as enhanced for clarity by methods in the "tidyverse", continue that philosophical approach into visualization methods, and then look at how to put our data on map.  
+
+This book focuses on methods for a 2-day course introducing R for GIS, and is a subset of a longer *Introduction to Environmental Data Science* book published by CRC Press, which also gets into additional graphics, statistical modeling, imagery classification, time series, and other R methods. A free online version hosted at bookdown.org: https://bookdown.org/igisc/EnvDataSci/, which I use for a semester-long course. We obviously won't be covering that much material, but I've provided suggestions of exploring further by referencing that book.
+
+R turns out to be a very accessible entry into data science. In general, data science can be seen as being the intersection of math and statistics, computer science/IT, and some research domain, and in this case it's environmental. GISc plays an important part in making this work.
+
+## Exploratory Data Analysis
+
+\index{exploratory data analysis}Just as *exploration* is a part of what *National Geographic* has long covered, it's an important part of geographic and environmental science research. **Exploratory data analysis** is exploration applied to data, and has grown as an alternative approach to traditional statistical analysis. This basic approach perhaps dates back to the work of Thomas Bayes in the eighteenth century, but @tukey1962 may have best articulated the basic goals of this approach in defining the "data analysis" methods he was promoting: "Procedures for analyzing data, techniques for interpreting the results of such procedures, ways of planning the gathering of data to make its analysis easier, more precise or more accurate, and all the machinery and results of (mathematical) statistics which apply to analyzing data." Some years later @tukey1977 followed up with *Exploratory Data Analysis*.
+
+Exploratory data analysis (EDA) is an approach to analyzing data via summaries and graphics. The key word is *exploratory*, and while one might view this in contrast to *confirmatory* statistics, in fact they are highly complementary. The objectives of EDA include (a) suggesting hypotheses; (b) assessing assumptions on which inferences will be based; (c) selecting appropriate statistical tools; and (d) guiding further data collection. This philosophy led to the development of S at Bell Labs (led by John Chambers, 1976), then to R. 
+
+## Software and Data
+
+First, we're going to use the R language, designed for statistical computing and graphics. It's not the only way to do data analysis -- Python is another important data science language -- but R with its statistical foundation is an important language for academic research, especially in the environmental sciences. 
+
+```{r echo=F, message=F}
+paste0("This book was produced in RStudio using ",R.version.string)
+```
+
+For a start, you'll need to have R and \index{RStudio}RStudio installed on the computer you'll be using. If you're working in our lab, R and RStudio are already installed, and just need to install packages that extend the software, which is very easy to do in R, and everything can be done within RStudio.
+
+>*If and only if you are working on your own computer*, I'd recommend doing a clean uninstall of previous versions of R before installing a new version. In Windows, you can find the `unins000.exe` file in the version folder within `C:\Program Files\R`. You'll find a link to install the latest version "for the first time" at CRAN (search "R CRAN").
+
+In RStudio, you can then install the packages needed. You'll want to install them when you first need them, which will typically be when you first see a `library()` call in the code, or possibly when a function is prefaced with the package name, something like `dplyr::select()`, or maybe when R raises an error that it can't find a function you've called or that the package isn't installed. One of the earliest we'll need is the suite of packages in the "tidyverse" (@wickham2016r), which includes some of the ones listed above: `ggplot2`, `dplyr`, `stringr`, and `tidyr`. You can install these individually, or all at once with:
+
+    `install.packages("tidyverse")`
+
+\index{install.packages}This is usually done from the console in RStudio and not included in an R script or markdown document, since you don't want to be installing the package over and over again. You can also respond to a prompt from RStudio when it detects a package called in a script you open that you don't have installed.
+
+From time to time, you'll want to update your installed packages, and that usually happens when something doesn't work and maybe the dependencies of one package on another gets broken with a change in a package. Fortunately, in the R world, especially at the main repository at CRAN, there's a lot of effort put into making sure packages work together, so usually there are no surprises if you're using the most current versions. *Note that there can be exceptions to this, and occasionally new package versions will create problems with other packages due to inter-package dependencies and the introduction of functions with names that duplicate other packages. The packages installed for this book were current as of that version of R, but new package versions may occasionally introduce errors.*
+
+Once a package like `dplyr` is installed, you can access all of its functions and data by adding a library call, like ...
+
+```{r message=F}
+library(dplyr)
+```
+
+... which you *will* want to include in your code, or to provide access to multiple libraries in the tidyverse, you can use `library(tidyverse)`. Alternatively, if you're only using maybe one function out of an installed package, you can call that function with the `::` separator, like `dplyr::select()`. This method has another advantage in avoiding problems with duplicate names -- and for instance we'll generally call `dplyr::select()` this way.
+
+### Data
+
+We'll be using data from various sources, including data on CRAN like the code packages above which you install the same way -- so use `install.packages("palmerpenguins")`.
+
+\index{data}We've also created a repository on GitHub that includes data we've developed in the Institute for Geographic Information Science (iGISc) at SFSU, and you'll need to install that package a slightly different way.
+
+```{r fig.align = 'center', out.width = "33%", echo=F}
+knitr::include_graphics(here::here("img", "IGIScSFSU281200.png"))
+```
+
+GitHub packages \index{GitHub packages}require a bit more work on the user's part since we need to first install `remotes`[^index-2], then use that to install the GitHub data package:
+
+[^index-2]: Note: you can also use `devtools` instead of `remotes` if you have that installed. They do the same thing; `remotes` is a subset of `devtools`. If you see a message about Rtools, you can ignore it since that is only needed for building tools from C++ and things like that.
+
+```{r eval=F}
+install.packages("remotes")
+remotes::install_github("iGISc/igisci")
+```
+
+\index{igisci}Then you can access it just like other built-in data by including:
+
+```{r message=F}
+library(igisci)
+```
+
+To see what's in it, you'll see the various datasets listed in:
+
+    data(package="igisci")
+
+For instance, Figure \@ref(fig:indexCAcounties) is a map of California counties using the CA_counties `sf` feature data. We'll be looking at the `sf` (Simple Features) package later in the Spatial section of the book, but seeing `library(sf)`, this is one place where you'd need to have installed another package, with `install.packages("sf")`.
+
+```{r indexCAcounties, fig.cap="California counties simple features data in igisci package"}
+library(tidyverse); library(igisci); library(sf)
+ggplot(data=CA_counties) + geom_sf()
+```
+
+The package datasets can be used directly as `sf` data or data frames. And similarly to functions, you can access the (previously installed) data set by prefacing with `igisci::` this way, without having to load the library. This might be useful in a one-off operation:
+
+```{r}
+mean(igisci::sierraFeb$LATITUDE)
+```
+
+Raw data such as `.csv` files can also be read from the `extdata` folder that is installed on your computer when you install the package, using code such as:
+
+    csvPath <- system.file("extdata","TRI/TRI_1987_BaySites.csv", package="igisci")
+    TRI87 <- read_csv(csvPath)
+
+or something similar for shapefiles, such as:
+
+    shpPath <- system.file("extdata","marbles/trails.shp", package="igisci")
+    trails <- st_read(shpPath)
+
+And we'll find that including most of the above arcanity in a function will help. We'll look at functions later, but here's a function that we'll use a lot for setting up reading data from the extdata folder:
+
+    ex <- function(dta){system.file("extdata",dta,package="igisci")}
+
+And this `ex()`function is needed so often that it's installed in the `igisci` package, so if you have `library(igisci)` in effect, you can just use it like this:
+
+    trails <- st_read(ex("marbles/trails.shp"))
+
+But how do we see what's in the `extdata` folder? We can't use the `data()` function, so we would have to dig for the folder where the igisci package gets installed, which is buried pretty deeply in your user profile. So I wrote another function `exfiles()` that creates a data frame showing all of the files and the paths to use. In RStudio you could access it with `View(exfiles())` or we could use a datatable (you'll need to have installed "DT"). You can use the path using the `ex()` function with any function that needs it to read data, like `read.csv(ex('CA/CA_ClimateNormals.csv'))`, or just enter that `ex()` call in the console like `ex('CA/CA_ClimateNormals.csv')` to display where on your computer the installed data reside. 
+
+```{r eval=T}
+DT::datatable(exfiles(), options=list(scrollX=T), rownames=F)
+```
+```{r exfilesDT, out.width="100%", echo=F, tab.cap="Installed extdata with path construction using ex()"}
+if (knitr::is_latex_output()) {
+  knitr::include_graphics(here::here("img","exfilesDT.png"))} else {
+    DT::datatable(exfiles(), options=list(scrollX=T), rownames=F)}
+```
+

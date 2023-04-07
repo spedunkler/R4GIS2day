@@ -1,0 +1,21 @@
+# Image Processing & Classfication Using Terra
+
+## First trying the methods in rspatial.org/terra
+```{r}
+if (!file.exists("data/rs/samples.rds")) {
+    download.file("https://biogeo.ucdavis.edu/data/rspatial/rs.zip", dest = "data/rs.zip")
+    unzip("data/rs.zip", exdir="data")
+}
+```
+
+```{r}
+library(terra)
+b2 <- rast('data/rs/LC08_044034_20170614_B2.tif')
+# Green
+b3 <- rast('data/rs/LC08_044034_20170614_B3.tif')
+# Red
+b4 <- rast('data/rs/LC08_044034_20170614_B4.tif')
+# Near Infrared (NIR)
+b5 <- rast('data/rs/LC08_044034_20170614_B5.tif')
+```
+

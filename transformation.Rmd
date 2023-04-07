@@ -1,0 +1,430 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Data Transformation {#transformation}
+
+```{r Transformation, echo=F, message=F}
+library(tidyverse); library(igisci)
+XSptsPheno <- XSptsNDVI %>%
+      filter(vegetation != "pine") %>%    # trees removed
+      pivot_longer(cols = starts_with("NDVI"), 
+                   names_to = "phenology", values_to = "NDVI") %>%
+      mutate(phenology = str_sub(phenology, 5, str_length(phenology)))
+XSptsPheno %>%
+  ggplot() +
+  geom_point(aes(elevation, NDVI, shape=vegetation, 
+                 color = phenology), size = 5) +
+  geom_smooth(aes(elevation, NDVI, 
+                 color = phenology), method="lm")
+
+```
+
+The goal of this section is to continue where we started in the earlier chapter on data abstraction with \index{dplyr}**`dplyr`** to look at the more transformational functions applied to data in a database, and \index{tidyr}**`tidyr`** adds other tools like pivot tables.
+
+-   **`dplyr`** tools:
+
+    -   joins: `left_join`, `right_join`, `inner_join`, `full_join`,
+        `semi_join`, `anti_join`
+    -   set operations: `intersect`, `union`, `setdiff`
+    -   binding rows and columns: `bind_cols`, `bind_rows`
+
+-   **`tidyr`** tools:
+
+    -   pivot tables: `pivot_longer`, `pivot_wider`
+
+The term "data wrangling" has been used for what we're doing with these tools, and the relevant cheat sheet used to be called that, but now they have names like "Data transformation with dplyr" and "Data tidying with tidyr", but those could change too.  See what's current at  <https://www.rstudio.com/resources/cheatsheets/>   
+
+## Data joins {#joins}
+
+\index{join, data}To bring in variables from another data frame based on a common join field. There are multiple types of joins. Probably the most common is **`left_join`** since it starts from the data frame (or sf) you want to continue working with and bring in data from an additional source. You'll retain all records of the first data set. For any non-matches, `NA` is assigned. 
+
+```{r _Transformation_, message=F, warning=F}
+library(tidyverse)
+library(igisci)
+library(sf)
+income <- read_csv(ex("CA/CA_MdInc.csv")) %>%
+   dplyr::select(trID, HHinc2016) %>%
+   mutate(HHinc2016 = as.numeric(HHinc2016),
+          joinid = str_c("0", trID)) %>%
+   dplyr::select(joinid, HHinc2016)
+census <- BayAreaTracts %>%
+   left_join(income, by = c("FIPS" = "joinid")) %>%
+   dplyr::select(FIPS, POP12_SQMI, POP2012, HHinc2016)
+head(census %>% st_set_geometry(NULL))
+```
+
+Other joins are:
+
+-   **`right_join`** \index{right\_join}where you end up retaining all the rows of the
+    second data set and NA is assigned to non-matches
+-   **`inner_join`** \index{inner\_join}where you only retain records for matches
+-   **`full_join`** \index{full\_join}where records are retained for both sides, and NAs
+    are assigned to non-matches
+
+**Right join example** We need to join NCDC monthly climate data for all California weather stations to a selection of 82 stations that are in the Sierra.
+
+-   The monthly data has 12 rows (1/month) for each station
+-   The right_join gets all months for all stations, so we weed out the
+    non-Sierra stations by removing NAs from a field only with Sierra
+    station data
+
+```{r message=F}
+sierra <- right_join(sierraStations, CA_ClimateNormals, by="STATION") %>%
+   filter(!is.na(STATION_NA)) %>% dplyr::select(-STATION_NA)
+head(sierra %>% filter(DATE == "01") %>% 
+   dplyr::select(NAME, ELEVATION, `MLY-TAVG-NORMAL`), n=10)
+```
+
+The exact same thing, however, could be accomplished with an inner_join, and it doesn't required removing the NAs:
+
+```{r message=F}
+sierraAlso <- inner_join(sierraStations, CA_ClimateNormals, by="STATION") %>%
+   dplyr::select(-STATION_NA)
+```
+
+## Set operations {#set}
+
+\index{set operations}Set operations compare two data frames (or vectors) to handle observations or rows that are the same for each, or not the same. The three set methods are:
+
+-   `dplyr::intersect(x,y)` \index{intersect}retains rows that appear in *both* x and y
+-   `dplyr::union(x,y)` \index{union}retains rows that appear in either or both of x
+    and y
+-   `dplyr::setdiff(x,y)` \index{setdiff}retains rows that appear in x but not in y
+
+```{r message=F}
+squares <- (1:10)^2
+evens <- seq(0,100,2)
+squares
+evens
+intersect(squares,evens)
+sort(union(squares,evens))
+sort(setdiff(squares,evens))
+```
+
+## Binding rows and columns {#binding}
+
+\index{bind\_cols}\index{bind\_rows}These `dplyr` functions are similar to `cbind` and `rbind` in base R, but always create data frames. For instance, `cbind` usually creates matrices and makes all vectors the same class. Note that in `bind_cols`, the order of data in rows must be the same.
+
+```{r message=F}
+states <- bind_cols(abb=state.abb,
+                    name=state.name,
+                    region=state.region,
+                    state.x77)
+head(states)
+```
+
+To compare, note that `cbind` converts numeric fields to character type when any other field is character, and character fields are converted to character integers where there are any repeats, which would require manipulating them into factors:
+
+```{r message=F}
+states <- as_tibble(cbind(abb=state.abb, 
+                          name=state.name, 
+                          region=state.region,
+                          division=state.division,
+                          state.x77))
+head(states)
+```
+
+## Pivoting data frames {#pivots}
+
+\index{pivoting}Pivot tables are a popular tool in Excel, allowing you to transform your data to be more useful in a particular analysis. A common need to pivot is 2+ variables with the same data where the variable name should be a factor. `Tidyr` has **`pivot_wider`** and **`pivot_longer`**.
+
+-   **`pivot_wider`** \index{pivot\_wider}pivots rows into variables.
+-   **`pivot_longer`** \index{pivot\_longer}pivots variables into rows, creating factors.
+
+### `pivot_longer`
+In our meadows study cross-section [@NDVI] created by intersecting normalized difference vegetation index (NDVI) values from multispectral drone imagery with surveyed elevation and vegetation types (xeric, mesic, and hydric), we have fields `NDVIgrowing` from a July 2019 growing season and `NDVIsenescent` from a September 2020 dry season, but would like "growing" and "senescent" to be factors with a single `NDVI` variable. This is how we used `pivot_longer` to accomplish this, using data from the `igisci` data package:
+
+```{r trans.pivot.pheno, message=F}
+XSptsPheno <- XSptsNDVI %>%
+      filter(vegetation != "pine") %>%    # trees removed
+      pivot_longer(cols = starts_with("NDVI"), 
+                   names_to = "phenology", values_to = "NDVI") %>%
+      mutate(phenology = str_sub(phenology, 5, str_length(phenology)))
+```
+
+To see what the reverse would be, we'd use `pivot_wider` to return to the original, but note that we're not writing over our `XSptsPheno` data frame.
+
+```{r message=F}
+XSptsPheno %>%
+  pivot_wider(names_from = phenology, names_prefix = "NDVI", 
+              values_from = NDVI)
+XSptsPheno
+```
+
+We'll use the `pivot_longer` result (the one we actually assigned to `XSptsPheno`) to allow us to create the graph we're after (Figure \@ref(fig:transPivotPheno)).
+
+```{r transPivotPheno, fig.cap="Color classified by phenology, data created by a pivot"}
+XSptsPheno %>%
+  ggplot() +
+  geom_point(aes(elevation, NDVI, shape=vegetation, 
+                 color = phenology), size = 5) +
+  geom_smooth(aes(elevation, NDVI, 
+                 color = phenology), method="lm")
+```
+
+Pivots turn out to be commonly useful. We've already seen their use in the Visualization chapter, such as when we graphed runoff from the Eucalyptus/Oak study [@eucoak], where we used a `pivot_longer` (Figure \@ref(fig:transEucOakPivot)).
+
+```{r transEucOakPivot, message=F, warning=F, fig.cap="Euc vs oak graphs created using a pivot"}
+eucoakrainfallrunoffTDR %>%
+  pivot_longer(cols = starts_with("runoffL"),
+               names_to = "tree", values_to = "runoffL") %>%
+  mutate(tree = str_sub(tree, str_length(tree)-2, str_length(tree))) %>%
+  ggplot() + geom_boxplot(aes(site, runoffL)) +
+    facet_grid(tree ~ .)
+```
+
+**Combining a pivot with bind_rows to create a runoff/rainfall scatterplot colored by tree**
+
+With a bit more code, we can combine pivoting with binding rows to set up a useful scatter plot (Figure \@ref(fig:transEucOakScatterplot)).
+
+```{r transEucOakScatterplot, message=F, warning=F, fig.cap="Runoff/rainfall scatterplot colored by tree, created by pivot and binding rows"}
+runoffPivot <- eucoakrainfallrunoffTDR %>%
+  pivot_longer(cols = starts_with("runoffL"),
+               names_to = "tree", values_to = "runoffL") %>%
+  mutate(tree = str_sub(tree, str_length(tree)-2, str_length(tree)),
+         Date = as.Date(date, "%m/%d/%Y"))
+euc <- runoffPivot %>%
+  filter(tree == "euc") %>%
+  mutate(rain_subcanopy = rain_euc,
+         slope = slope_euc,    aspect = aspect_euc,
+         surface_tension = surface_tension_euc,
+         runoff_rainfall_ratio = runoff_rainfall_ratio_euc) %>%
+  dplyr::select(site, `site #`, tree, Date, month, rain_mm, 
+         rain_subcanopy, slope, aspect, runoffL,     
+         surface_tension, runoff_rainfall_ratio)
+oak <- runoffPivot %>%
+  filter(tree == "oak") %>%
+  mutate(rain_subcanopy = rain_oak,
+         slope = slope_oak, aspect = aspect_oak,
+         surface_tension = surface_tension_oak,
+         runoff_rainfall_ratio = runoff_rainfall_ratio_oak) %>%
+  dplyr::select(site, `site #`, tree, Date, month, rain_mm, 
+         rain_subcanopy, slope, aspect, runoffL, 
+         surface_tension, runoff_rainfall_ratio)
+bind_rows(euc, oak) %>%
+  ggplot() +
+  geom_point(mapping = aes(x = rain_mm, y = runoffL, color = tree)) +
+  geom_smooth(mapping = aes(x = rain_mm, y= runoffL, color = tree), 
+              method = "lm") +
+  scale_color_manual(values = c("seagreen4", "orange3"))
+```
+```{r demo_Precip, include=F}
+# lecture demo in Abstractions
+bind_rows(euc, oak) %>%
+  ggplot() +
+     geom_point(mapping = aes(x = Date, y = rain_subcanopy, color = tree, shape = site))
+
+```
+
+### `pivot_wider`
+
+\index{pivot\_wider}The opposite of `pivot_longer`, `pivot_wider` is less commonly used for tidying data, but can be useful for creating tables of that desired format. An environmental application of `pivot_wider` can be found in `vignette("pivot")` (modified below) for studying fish detected by automatic monitors, with `fish_encounters` data contributed by @JohnstonRudis . This pivot makes it easier to see fish encounters by station. See @JohnstonRudis and `vignette("pivot")` for more information on the dataset and how the pivot provides this view.
+
+```{r include=F}
+library(igisci)
+```
+
+
+```{r}
+library(tidyverse)
+fish_encounters <- read_csv(ex("fishdata.csv"))
+fish_encounters
+fishEncountersWide <- fish_encounters %>% 
+  pivot_wider(names_from = Station, values_from = value, values_fill = 0)
+fishEncountersWide
+```
+
+
+```{r include=F,eval=F}
+# The file "fishdata.csv" is already in the igisci package in the extdata folder
+# but this is where it came from:
+if (!file.exists(ex("fishdata.csv"))) {
+  download.file(
+  url = paste0('https://github.com/Myfanwy/ReproducibleExamples/',
+               'raw/master/encounterhistories/fishdata.csv'),
+  destfile = ex("fishdata.csv")
+  )
+}
+```
+
+### A `free_y` faceted graph using a pivot
+
+\index{faceted graph using a pivot}Creating parallel multi-parameter graphs over a time series can be challenging. We need to link the graphs with a common x axis, but we may need to vary the scaling on the y axis, unlike the faceted graph of grouped data we looked at in the visualization chapter. We'll look at time series in a later chapter, but this is a good time to explore the use of a pivot_longer to set up the data for a graph like this, and at the same time to expand upon our visualization toolkit.
+
+**Flux tower data**
+
+We'll look at this data set in more depth in the time series chapter, but here's a quick introduction. To look at micrometeorological changes related to phenological changes in vegetation from seasonal hydrologic changes from snowmelt through summer drying, we captured an array of variables at a flux tower in Loney Meadow in the South Yuba River watershed of the northern Sierra during the 2016 season (Figure \@ref(fig:transLoneyFlux)).
+
+```{r transLoneyFlux, fig.align = 'center', out.width = "75%", fig.cap = "Flux tower installed at Loney Meadow, 2016. Photo credit: Darren Blackburn", echo=F}
+knitr::include_graphics(here::here("img", "LoneyFluxTowerWide.png"))
+```
+
+A spreadsheet of 30-minute summaries from 17 May to 6 September can be found in the igisci extdata folder as "meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls", and among other parameters includes data on CO~2~ flux, net radiation (Qnet), air temperature (Tair), and relative humidity (RH). There's clearly a lot more we can do with these data (see @blackburn2021carbon), but we'll look at this selection of parameters to see how we can use a pivot to create a multi-parameter graph.
+
+First, we'll read in the data and simplify some of the variables. Since the second row of data contains measurement units, we needed to wrangle the data a bit to capture the variable names then add those back after removing the first two rows:
+
+```{r LoneyPivot}
+library(readxl); library(tidyverse); library(lubridate)
+vnames <- read_xls(ex("meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls"),
+                   n_max=0) %>% names()
+vunits <- read_xls(ex("meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls"), 
+                   n_max=0, skip=1) %>% names()
+Loney <- read_xls(ex("meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls"), 
+                  skip=2, col_names=vnames) %>%
+         rename(YDay = `Day of Year`, CO2flux = `CO2 Flux`)
+```
+
+The time unit we'll want to use for time series is going to be days, and we can also then look at the data over time, and a group_by summarization by days will give us a generalized picture of changes over the collection period reflecting phenological changes from first exposure after snowmelt through the maximum growth period and through the major senescence period of late summer. We'll create the data to graph by using a group_by summarize to create a daily picture of a selection of four micrometeorological parameters:
+
+```{r trans.Loney}
+LoneyDaily <- Loney %>%
+  group_by(YDay) %>%
+  summarize(CO2flux = mean(CO2flux),
+            Qnet = mean(Qnet),
+            Tair = mean(Tair),
+            RH = mean(RH))
+```
+
+Then from this daily data frame, we pivot_longer to store all of the parameter names in a `parameter` variable and all parameter values in a `value` variable:
+
+```{r}
+LoneyDailyLong <- LoneyDaily %>%
+  pivot_longer(cols = CO2flux:RH,
+               names_to="parameter",
+               values_to="value") %>%
+  filter(parameter %in% c("CO2flux", "Qnet", "Tair", "RH"))
+```
+
+Now we have what we need to create a multi-parameter graph using facet_grid -- note the scales = "free_y" setting to allow each variable's y axis to correspond to its value range (Figure \@ref(fig:transFacet)).
+
+```{r transFacet, fig.cap="free-y facet graph supported by pivot (note the y axis scaling varies among variables)"}
+p <- ggplot(data = LoneyDailyLong, aes(x=YDay, y=value)) + 
+  geom_line()
+p + facet_grid(parameter ~ ., scales = "free_y")
+```
+
+The need to create a similar graph from soil CO~2~ data inspired me years ago to learn how to program Excel. It was otherwise impossible to get Excel to make all the x scales the same, so I learned how to force it with code...
+
+\pagebreak
+## Exercise: Transformation
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+*by Josh von Nonn (2021)*
+
+The impetus behind this exercise came from the movie *Dark Waters* (<https://www.youtube.com/watch?v=RvAOuhyunhY>), inspired by a true story of negligent chemical waste disposal by Dupont.
+
+First create a new RStudio project, named `GAMA` and save this .Rmd file there, and create a folder `GAMA_water_data` in the project folder; the path to the data can then be specified as `"GAMA_water_data/gama_pfas_statewide_v2.txt"` assuming that the latter name matches what is unzipped from your download. Change to match the actual name if it differs.
+
+Then download from the California Water Boards, GAMA groundwater website: <https://gamagroundwater.waterboards.ca.gov/gama/datadownload>
+
+Then select "Statewide Downloads" then "Statewide PFOS Data" and extract the zip file into the `GAMA_water_data` folder. This is a large txt file so if you open it with notepad it may take some time to load. Notice that this is a space delimited file.
+
+**Note** that this data structure is similar to what was discussed in the introductory chapter in how you should use RStudio projects to organize your data, allowing *relative paths* to your data, such as "GAMA_water_data/gama_pfas_statewide_v2.txt", which will work wherever you copy your project folder. An absolute path to somewhere on your computer in contrast won't work for anyone else trying to run your code; absolute paths should only be used for servers that other users have access to and URLs on the web.
+
+Required packages:
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+1. Read in the downloaded file `"gama_pfas_statewide_v2.txt"` and call it `cal_pfas` and have a look at the data set. You can select if from the Environment pane or use `view(cal_pfas)`.
+
+```{r}
+library(tidyverse)
+cal_pfas <- read.delim("GAMA_water_data\\gama_pfas_statewide_v2.txt")
+```
+
+2.  Before we clean up this data, let's preserve the locations of all the wells. Create a new data frame, `cal_pfas_loc`, Select `GM_WELL_ID`, `GM_LATITUDE`, and `GM_LONGITUDE` and remove all the duplicate wells (hint: dplyr cheat sheet provides a function to do this).
+
+```{r}
+#retaining a small data frame for well geolocations
+cal_pfas_loc <- dplyr::select(cal_pfas,GM_WELL_ID,lat = GM_LATITUDE,long = GM_LONGITUDE) %>%
+  distinct() #removes duplicate wells
+```
+
+3.  Now to trim down the data. Create a new data frame, `cal_pfas_trim`; add a new column, `DATE`, using the associated `lubridate` function on `GM_SAMP_COLLECTION_DATE` (this will allow ggplot to recognize it as a date and not a character string), select `GM_WELL_ID`,`GM_CHEMICAL_VVL`,`GM_RESULT`, and the newly created `DATE`. Sort (`arrange`) the data by `GM_WELL_ID`.
+
+```{r}
+#cleaning up cal_pfas
+library(lubridate)
+cal_pfas_trim <- cal_pfas %>%
+  mutate(DATE=mdy(GM_SAMP_COLLECTION_DATE)) %>% #using lubridate(mdy) for ggplot communication
+  dplyr::select(GM_WELL_ID,GM_CHEMICAL_VVL,GM_RESULT,DATE) %>% 
+  arrange(GM_WELL_ID) #arrange used here to aid in visualizing data frame
+```
+
+4.  Use `pivot_wider` to create new columns from the chemical names and values from the result column and store the new data frame as `cal_pfas_wide`. Notice the warnings. Some of the wells have multiple samples on the same day so they will be put into a vector (ex. c(6.8,9,4.3,etc..)). Rerun the pivot but include the argument `values_fn = mean`. This will return only the average of all the samples. Once the pivot is working correctly, keep the columns `GM_WELL_ID`,`DATE`,`PFOS`,`PFOA` and pipe a mutate to create a new column, `SUMPFS`, that is the sum of `PFOS` and `PFOA`.
+
+```{r}
+#pivoting wider, "values_fn" is used here to average the multiple per-day results, otherwise the values would be a list ex, c(4.8,6.8,etc.)
+cal_pfas_wide <- pivot_wider(cal_pfas_trim,names_from = "GM_CHEMICAL_VVL",values_from = "GM_RESULT", values_fn = mean) %>%
+  dplyr::select(GM_WELL_ID,DATE,PFOS,PFOA) %>%
+  mutate(SUMPFS= PFOS + PFOA) #creating a new column for the sum of PFOS + PFOA 
+
+```
+
+> The US EPA has established a lifetime Health Advisory Level (HAL) for PFOA and PFOS of 70 ng/L. When both PFOA and PFOS are found in drinking water, the combined concentrations of PFOA and PFOS should be compared with the 70 ng/L HAL.
+>From the GROUNDWATER INFORMATION SHEET for PFOA (website:<https://www.waterboards.ca.gov/water_issues/programs/gama/factsheets.html>)
+
+5.  For the sake of creating an interesting time series plot, let's filter data for wells that have a `SUMPFS` greater than 70 and that have more than 10 sampling dates. Start by creating a new data frame- `cal_pfas_index` from the pivoted data frame. Hint: one way to do this is use `group_by`, `filter`, `count`, and `filter` again. The resulting data frame downloaded in 2021 had 11 observations and 2 variables.
+
+```{r}
+#creating an index by filtering for PFOS_PFOA greater than 70(HAL) with more than 10 sample dates.
+#We're choosing for wells with an extended sampling history to plot a time series later.
+cal_pfas_index <- cal_pfas_wide %>%
+  group_by(GM_WELL_ID) %>% #group_by function is needed here for count to work properly
+  filter(SUMPFS > 70) %>%
+  count() %>%
+  filter(n>10)
+```
+
+6.  Create a new data frame, `cal_pfas_max` to locate the well with the most sampling dates (n). The data wrangling function from base R, `subset`, can do this using the `max` function as an argument.
+
+```{r}
+#locating the longest sampled well with PFOS_PFOA greater than 70. Note that this is not the well with the highest concentrations, but one with a long sampling history. 
+cal_pfas_max <- subset(cal_pfas_index,n==max(n))
+```
+
+7.  Now let's pull all the data on that well by joining the max indexed well with `cal_pfas_wide` and call the new data frame `cal_pfas_join`. Remove the "n" column using the select function.
+
+```{r}
+cal_pfas_join <- left_join(cal_pfas_max,cal_pfas_wide,by="GM_WELL_ID") %>%
+  dplyr::select(-n)
+```
+
+8.  Create a new data frame, `cal_pfs_long` and `pivot_longer` the `cal_pfs_join` data, creating new columns: `"chemical"` and `"ngl"`.
+
+```{r}
+cal_pfas_long <- pivot_longer(cal_pfas_join,cols = c(PFOS,PFOA,SUMPFS),names_to = "Chemical",values_to = "ngl")
+```
+
+9.  Plot the well using the wide data from `cal_pfs_join` with ggplot, using `DATE` on the x axis and plot the three variables (`PFOS,PFOA,SUMPFS`) with different colored lines of your choice. Add a horizontal reference line (`geom_hline(yintercept = 70)`) for the HAL limit at 70.
+
+```{r}
+#plot from wide data results in no legend
+ggplot(cal_pfas_join, aes(x=DATE)) +
+  geom_line(aes(y=PFOS),color = "darkred") +
+  geom_line(aes(y=PFOA),color="steelblue") +
+  geom_line(aes(y=SUMPFS), color="purple") +
+  geom_hline(yintercept = 70) +
+  labs(subtitle="",y="ng/L",x="Year",title="Time series using pivot_wide data")
+```
+
+10. Plot the well using the long data from `cal_pfs_long` using DATE on the x axis and `ngl` on the y axis. Distinguish the chemicals by setting the line color to `Chemical` in the aesthetics. Add the horizontal reference at 70 (Figure \@ref(fig:transGoal10)).
+
+```{r}
+#plot from longer data creates legend
+ggplot(cal_pfas_long, aes(x=DATE,y=ngl,color = Chemical)) +
+  geom_line() +
+  geom_hline(yintercept = 70) +
+  labs(subtitle="",y="ng/L",x="Year",title="Time series using pivot_longer data") +
+  theme(legend.position = c(0.8,0.8))
+```
+
+```{r transGoal10,include=T,eval=T,echo=F,out.width='50%',fig.align="center",fig.cap="Goal"}
+knitr::include_graphics(here::here("img","goal_Transformation10.png"))
+```

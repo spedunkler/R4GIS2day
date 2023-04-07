@@ -1,0 +1,14 @@
+---
+title: "Untitled"
+author: "Jerry Davis"
+date: "10/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+\sqrt{sum({\bar{x}-x_i}^2)}

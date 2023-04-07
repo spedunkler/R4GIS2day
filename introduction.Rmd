@@ -1,0 +1,745 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Introduction to R {#introduction}
+
+This section lays the foundation for exploratory data analysis using the R language and  packages especially within the tidyverse. This foundation progresses through:
+
+- Introduction : An introduction to the R language
+- Abstraction : Exploration of data via reorganization using `dplyr` and other packages in the tidyverse (Chapter \@ref(abstraction))
+- Visualization : Adding visual tools to enhance our data exploration (Chapter \@ref(visualization))
+- Transformation : Reorganizing our data with pivots and data joins (Chapter \@ref(transformation))
+
+<img src="img/R.png" align="right"/>
+
+In this chapter we'll introduce the R language, using RStudio to explore its basic data types, structures, functions and programming methods in base R. We're assuming you're either new to R or need a refresher. Later chapters will add packages that extend what you can do with base R for data abstraction, transformation, and visualization, then explore the spatial world, statistical models, and time series applied to environmental research.
+
+The following code illustrates a few of the methods we'll explore in this chapter:
+
+```{r}
+temp <- c(10.7, 9.7, 7.7, 9.2, 7.3)
+elev <- c(52, 394, 510, 564, 725)
+lat <- c(39.52, 38.91, 37.97, 38.70, 39.09)
+elevft <- round(elev / 0.3048)
+deg <- as.integer(lat)
+min <- as.integer((lat-deg) * 60)
+sec <- round((lat-deg-min/60)*3600)
+sierradata <- cbind(temp, elev, elevft, lat, deg, min, sec)
+mydata <- as.data.frame(sierradata)
+mydata
+```
+
+
+**RStudio**
+
+\index{RStudio}If you're new to RStudio, or would like to learn more about using it, there are plenty of resources you can access to learn more about using it. As with many of the major packages we'll explore, there's even a cheat sheet: <https://www.rstudio.com/resources/cheatsheets/>. Have a look at this cheat sheet while you have RStudio running, and use it to learn about some of its different components:
+
+-   The **Console**, where you'll enter short lines of code, install packages, and get help on functions. Messages created from running code will also be displayed here. There are other tabs in this area (e.g. Terminal, R Markdown) we may explore a bit, but mostly we'll use the console.
+-   The **Source Editor**, where you'll write full R scripts and R Markdown documents. You should get used to writing complete scripts and R Markdown documents as we go through the book.
+-   Various **Tab Panes** such as the **Environment** pane, where you can explore what scalars and more complex objects contain.
+-   The **Plots** pane in the lower right for static plots (graphs and maps that aren't interactive), which also lets you see a listing of **Files**, or **View** interactive maps and maps.
+
+## Data Objects
+
+As with all programming languages, R works with *data* and since it's an object-oriented language, these are \index{data objects}*data objects*. Data objects can range from the most basic type -- the *scalar* which holds one value, like a number or text -- to everything from an array of values to spatial data for mapping or a time series of data.
+
+### Scalars and assignment
+
+We'll be looking at a variety of types of data objects, but \index{scalars}scalars are the most basic type, holding individual values, so we'll start with it. Every computer language, like in math, stores values by assigning them constants or results of expressions. These are often called "variables," but we'll be using that name to refer to a column of data stored in a data frame, which we'll look at later in this chapter. R uses a lot of objects, and not all are data objects; we'll also create functions \@ref(functions-writing), a type of object that does something (runs the function code you've defined for it) with what you provide it.
+
+To create a scalar (or other data objects), we'll use the most common type of statement, the \index{assignment statement}*assignment statement*, that takes an \index{expression}*expression* and assigns it to a new data object that we'll name. The *class* of that data object is determined by the class of the expression provided, and that expression might be something as simple as a \index{constant}*constant* like a number or a character string of text. Here's an example of a very basic assignment statement that assigns the value of a constant `5` to a new scalar `x`:
+
+`x <- 5`
+
+Note that this uses the assignment operator `<-` that is standard for R. You can also use `=` as most languages do (and I sometimes do), but we'll use `=` for other types of assignments.
+
+All object names must start with a letter, have no spaces, and must not use any names that are built into the R language or used in package libraries, such as reserved words like `for` or function names like `log`. Object names are case-sensitive (which you'll probably discover at some point by typing in something wrong and getting an error).
+
+```{r}
+x <- 5
+y <- 8
+Longitude <- -122.4
+Latitude <- 37.8
+my_name <- "Inigo Montoya"
+```
+
+To check the value of a data object, you can just enter the name in the console, or even in a script or code chunk.
+
+```{r}
+x
+y
+Longitude
+Latitude
+my_name
+```
+
+This is counter to the way printing out values commonly works in other programming languages, and you will need to know how this method works as well because you will want to use your code to develop tools that accomplish things, and there are also limitations to what you can see by just naming objects.
+
+To see the values of objects in programming mode, you can also use the \index{print}`print()` function (but we rarely do); or to concatenate character string output, use \index{paste}`paste()` or \index{paste0}`paste0`.
+
+```{r eval=F}
+print(x)
+paste0("My name is ", my_name, ". You killed my father. Prepare to die.")
+```
+
+Numbers concatenated with character strings are converted to characters.
+
+```{r eval=F}
+paste0(paste("The Ultimate Answer to Life", "The Universe", 
+             "and Everything is ... ", sep=", "),42,"!")
+```
+
+```{r}
+paste("The location is latitude", Latitude, "longitude", Longitude)
+```
+
+Review the code above and what it produces. What do you think the difference is between `paste()` and `paste0()`?
+
+> We'll use \index{paste0() for long file paths}`paste0()` a lot in this book to deal with long file paths which create problems for the printed/pdf version of this book, basically extending into the margins. Breaking the path into multiple strings and then combining them with `paste0()` is one way to handle them. For instance, in the Imagery and Classification Models chapter, the Sentinel2 imagery is provided in a very long file path.  So here's how we use `paste0()` to recombine after breaking up the path, and we then take it one more step and build out the full path to the 20 m imagery subset.
+
+```{r eval=F}
+imgFolder <- paste0("S2A_MSIL2A_20210628T184921_N0300_R113_T10TGK_20210628T230915.",
+                    "SAFE/GRANULE/L2A_T10TGK_A031427_20210628T185628")
+img20mFolder <- paste0("~/sentinel2/",imgFolder,"/IMG_DATA/R20m")
+```
+
+
+## Functions {#functions}
+
+Just as in regular mathematics, R makes a lot of use of \index{functions}*functions* that accept an input and create an output:
+
+    log10(100)
+    log(exp(5))
+    cos(pi)
+    sin(90 * pi/180)
+
+But functions can be much more than numerical ones, and R functions can return a lot of different data objects. You'll find that most of your work will involve functions, from those in base R to a wide variety in packages you'll be adding. You will likely have already used the `install.packages()` and `library()` functions that add in an array of other functions.
+
+Later in this chapter, we'll also learn how to *write our own functions*, a capability that is easy to accomplish and also gives you a sense of what developing your own package might be like.
+
+\index{arithmetic operators}**Arithmetic operators** There are, of course, all the normal arithmetic operators (that are actually functions) like plus `+` and minus `-` or the key-stroke approximations of multiply `*` and divide `/` operators. You're probably familiar with these approximations from using equations in Excel if not in some other programming language you may have learned. These operators look a bit different from how they'd look when creating a nicely formatted equation.
+
+For example, $\frac{NIR - R}{NIR + R}$ instead has to look like `(NIR-R)/(NIR+R)`.
+
+Similarly `*` *must* be used to multiply; there's no implied multiplication that we expect in a \index{math equation}math equation like $x(2+y)$, which would need to be written `x*(2+y)`.
+
+In contrast to those four well-known operators, the symbol used to \index{exponentiate}exponentiate -- raise to a power -- varies among programming languages. R uses either `**` or `^` so the the Pythagorean theorem $c^2=a^2+b^2$ might be written `c**2 = a**2 + b**2` or `c^2 = a^2 + b^2` except for the fact that it wouldn't make sense as a statement to R. Why?
+
+And how would you write an R statement that assigns the variable `c` an expression derived from the Pythagorean theorem? (And don't use any new functions from a Google search -- from deep math memory, how do you do $\sqrt{x}$ using an exponent?)
+
+```{r include = T}
+a <- 2; b <- 3
+c <- (a^2 + b^2)^0.5
+c
+```
+
+It's time to talk more about expressions and statements.
+
+## Expressions and Statements {#expressions}
+
+The concepts of expressions and statements are very important to understand in any programming language.
+
+An \index{expression}**expression** in R (or any programming language) has a *value* just like an object has a value. An expression will commonly combine data objects and functions to be *evaluated* to derive the value of the expression. Here are some examples of expressions:
+
+    5
+    x
+    x*2
+    sin(x)
+    (a^2 + b^2)^0.5
+    (-b+sqrt(b**2-4*a*c))/2*a
+    paste("My name is", aname)
+
+Note that some of those expressions used previously assigned objects -- `x`, `a`, `b`, `c`, `aname`.
+
+An expression can be entered in the console to display its current value, and this is commonly done in R for objects of many types and complexity.
+
+```{r intro.Pi}
+cos(pi)
+Nile
+```
+
+Whoa, what was that? We entered the expression `Nile` and got a bunch of stuff! `Nile` is a type of data object called a time series that we'll be looking at much later, and since it's in the built-in data in base R, just entering its name will display it. And since time series are also \index{vectors}*vectors* which are like entire columns, rows, or variables of data, we can \index{vectorize}*vectorize* it (apply mathematical operations and functions element-wise) in an expression:
+
+```{r}
+Nile * 2
+```
+
+More on that later, but we'll start using vectors here and there. Back to expressions and statements:
+
+A \index{statement}**statement** in R *does something*. It represents a directive we're assigning to the computer, or maybe the environment we're running on the computer (like RStudio, which then runs R). A simple `print()` *statement* seems a lot like what we just did when we entered an expression in the console, but recognize that it *does something*:
+
+```{r intro.Hello}
+print("Hello, World")
+```
+
+Which is the same as just typing `"Hello, World"`, but either way we write it, it *does something*.
+
+Statements in R are usually put on one line, but you can use a semicolon to have multiple statements on one line, if desired:
+
+```{r intro.print}
+x <- 5; print(x); print(x**2); x; x^0.5
+```
+
+Many (perhaps most) statements don't actually display anything. For instance:
+
+```{r intro.nodisplay}
+x <- 5
+```
+
+doesn't display anything, but it does assign the constant `5` to the object `x`, so it simply *does something*. It's an \index{assignment statement}**assignment statement**, easily the most common type of statement that we'll use in R, and uses that special assignment operator `<-` . Most languages just use `=` which the designers of R didn't want to use, to avoid confusing it with the equal sign meaning "is equal to".
+
+*An assignment statement assigns an expression to a object.* If that object already exists, it is reused with the new value. For instance it's completely legit (and commonly done in coding) to update the object in an assignment statement. This is very common when using a counter scalar:
+
+    i = i + 1
+
+You're simply updating the index object with the next value. This also illustrates why it's *not* an equation: `i=i+1` doesn't work as an equation (unless `i` is actually $\infty$ but that's just really weird.)
+
+And `c**2 = a**2 + b**2` doesn't make sense as an R statement because `c**2` isn't an object to be created. The `**` part is interpreted as *raise to a power*. What is to the left of the assignment operator `=` *must* be an object to be assigned the value of the expression.
+
+## Data Classes {#class}
+
+Scalars, constants, vectors, and other data objects in R have \index{data classes}data classes. Common types are numeric and character, but we'll also see some special types like Date.
+
+```{r intro.class}
+x <- 5
+class(x)
+class(4.5)
+class("Fred")
+class(as.Date("2021-11-08"))
+```
+
+### Integers {#integers}
+
+\index{integers}By default, R creates double-precision floating-point numeric data objects. To create integer objects:
+
+-   append an L to a constant, e.g. `5L` is an integer 5
+-   convert with `as.integer`
+
+We're going to be looking at various `as.` functions in R, more on that later, but we should look at \index{as.integer}`as.integer()` now. Most other languages use `int()` for this, and what it does is convert *any number* into an integer, *truncating* it to an integer, not rounding it (there's also a `round()` function).
+
+```{r intro.as.integer}
+as.integer(5)
+as.integer(4.5)
+```
+
+## Rectangular Data
+
+A common data format used in most types of research is \index{rectangular data}**rectangular** data such as in a spreadsheet, with rows and columns, where rows might be \index{observations}**observations** and columns might be \index{variables}**variables** (Figure \@ref(fig:introRectangular)). We'll read this type of data in from spreadsheets or even more commonly from \index{CSV}comma-separated-variable (CSV) files, though some of these package data sets are already available directly as data frames.
+
+```{r introRectangular, fig.align="center", out.width = "75%", echo=F, fig.cap="Variables, observations, and values in rectangular data"}
+knitr::include_graphics(here::here("img", "variablesObservationsValues.png"))
+```
+
+```{r intro.igisci}
+library(igisci)
+head(sierraFeb)
+```
+
+## Data Structures in R
+
+We've already started using the most common data structures -- scalars and vectors -- but haven't really talked about vectors yet, so we'll start there.
+
+### Vectors {#vector}
+
+A \index{vector}vector is an ordered collection of numbers, strings, vectors, data frames, etc. What we mostly refer to simply as vectors are formally called \index{atomic vectors}**atomic vectors**, which require that they be *homogeneous* sets of whatever type we're referring to, such as a vector of numbers, a vector of strings, or a vector of dates/times.
+
+You can create a simple vector with the \index{c()}`c()` function:
+
+```{r intro.vector}
+lats <- c(37.5,47.4,29.4,33.4)
+lats
+states <- c("VA", "WA", "TX", "AZ")
+states
+zips <- c(23173, 98801, 78006, 85001)
+zips
+```
+
+The \index{class of a vector}class of a vector is the type of data it holds
+
+```{r intro.vectorClass}
+temp <- c(10.7, 9.7, 7.7, 9.2, 7.3, 6.7)
+class(temp)
+```
+
+Let's also introduce the handy \index{str}`str()` function, which in one step gives you a view of the class of an item and its content -- so its structure. We'll often use it in this book when we want to tell the reader what a data object contains, instead of listing a vector and its class separately, so instead of ...
+
+```{r}
+temp
+class(temp)
+```
+
+... we'll just use `str()`:
+
+```{r}
+str(temp)
+```
+
+Vectors can only have one data class, and if mixed with character types, numeric elements will become character:
+
+```{r intro.mixed}
+mixed <- c(1, "fred", 7)
+str(mixed)
+mixed[3]   # gets a subset, example of coercion
+```
+
+#### NA {#NA}
+
+\index{NA}Data science requires dealing with missing data by storing some sort of null value, called various things:
+
+-   null
+-   nodata
+-   `NA` "not available" or "not applicable"
+
+```{r intro.as.numeric}
+as.numeric(c("1","Fred","5")) # note NA introduced by coercion
+```
+Note that `NA` doesn't really have a data class. The above example created a numeric vector with the one it couldn't figure out being assigned `NA`. *Remember that vectors (and matrices and arrays) have to be all the same data class.*  A character vector can also include `NA`s.  Both of the following are valid vectors, with the second item being `NA`:
+
+```{r results="hold"}
+c(5,NA,7)
+c("alpha",NA,"delta")
+```
+> Note that we typed `NA` without quotations. It's kind of like a special constant, like the `TRUE` and `FALSE` logical values, neither of which uses quotations. 
+
+
+We often want to ignore `NA` in statistical summaries. Where normally the summary statistic can only return `NA`...
+
+```{r intro.as.numeric.na}
+mean(as.numeric(c("1", "Fred", "5")))
+```
+
+... with `na.rm=T` you can still get the result for all actual data:
+
+```{r intro.as.numeric.na.rm}
+mean(as.numeric(c("1", "Fred", "5")), na.rm=T)
+```
+
+
+#### Creating a vector from a sequence
+
+We often need \index{sequences of values}sequences of values, and there are a few ways of creating them. The following three examples are equivalent:
+
+    seq(1,10,1)
+    1:10
+    c(1,2,3,4,5,6,7,8,9,10)
+
+#### Vectorization and vector arithmetic {#vectorization}
+
+Arithmetic on vectors operates element-wise, a process called \index{vectorization}*vectorization*.
+
+```{r intro.vectorization}
+elev <- c(52,394,510,564,725,848,1042,1225,1486,1775,1899,2551)
+elevft <- elev / 0.3048
+elevft
+```
+
+Another example, with two vectors:
+
+```{r intro.2vectors}
+temp03 <- c(13.1,11.4,9.4,10.9,8.9,8.4,6.7,7.6,2.8,1.6,1.2,-2.1)
+temp02 <- c(10.7,9.7,7.7,9.2,7.3,6.7,4.0,5.0,0.9,-1.1,-0.8,-4.4)
+tempdiff <- temp03 - temp02
+tempdiff
+
+```
+
+#### Plotting vectors
+
+Vectors of Feb temperature, elevation, and latitude at stations in the Sierra:
+
+```{r intro.plotVectors}
+temp <- c(10.7,  9.7,  7.7,  9.2,  7.3,  6.7,  4.0,  5.0,  0.9, -1.1, -0.8,-4.4)
+elev <-   c(52,  394,  510,  564,  725,  848, 1042, 1225, 1486, 1775, 1899, 2551)
+lat <- c(39.52,38.91,37.97,38.70,39.09,39.25,39.94,37.75,40.35,39.33,39.17,38.21)
+
+```
+
+**Plot individually by index vs a scatterplot**
+
+\index{scatterplot}We'll use the \index{plot}`plot()` function to visualize what's in a vector. The `plot()` function will create an output based upon its best guess of what you're wanting to see, and will depend on the nature of the data you provide it. We'll be looking at a lot of ways to visualize data soon, but it's often useful to just see what `plot()` gives you. In this case, it just makes a bivariate plot where the x dimension is the sequential index of the vector from 1 through the length of the vector, and the values are in the y dimension. For comparison is a scatterplot with `elevation` on the x axis (Figure \@ref(fig:twoplots)).
+
+```{r eval=F}
+plot(temp)
+plot(elev,temp)
+```
+```{r twoplots, echo=F, fig.show="hold", out.width="50%", fig.cap="Temperature plotted by index (left) and elevation (right)"}
+par(mar = c(4,4,.1,.1), cex=1.5) # formatting only needed for this book figure
+plot(temp)
+plot(elev,temp)
+```
+
+
+### Lists {#list}
+
+\index{lists}Lists can be heterogeneous, with multiple class types. Lists are actually used a lot in R, and are created by many operations, but they can be confusing to get used to especially when it's unclear what we'll be using them for. We'll avoid them in this class, but they're worthwhile learning more about when you have more time.
+
+### Matrices {#matrix}
+
+\index{matrices}Vectors are commonly used as a column in a matrix (or as we'll see, a data frame), like a variable
+
+```{r intro.matrix}
+temp <- c(10.7,  9.7,  7.7,  9.2,  7.3,  6.7,  4.0,  5.0,  0.9, -1.1, -0.8,-4.4)
+elev <-   c(52,  394,  510,  564,  725,  848, 1042, 1225, 1486, 1775, 1899, 2551)
+lat <- c(39.52,38.91,37.97,38.70,39.09,39.25,39.94,37.75,40.35,39.33,39.17,38.21)
+
+```
+
+**Building a matrix from vectors as columns**
+
+```{r intro.cbind}
+sierradata <- cbind(temp, elev, lat)
+class(sierradata)
+str(sierradata)
+sierradata
+```
+
+### Data frames {#dataframes}
+
+While we can do more things with matrices, R's \index{data frame}data frame object is more useful, and is more similar to the database format that we're used to in GIS. They're kind of like a spreadsheet with rules (like the first row is field names) or a matrix that can have variables of unique types. Data frames will be very important for data analysis and GIS.
+
+Before we get started, we're going to use the \index{palmerpenguins}`palmerpenguins` data set, so you need to install it if you haven't yet, and then load the library with:
+```{r}
+library(palmerpenguins)
+```
+
+I'd encourage you to learn more about this dataset at <https://allisonhorst.github.io/palmerpenguins/articles/intro.html>(@palmer) (Figures \@ref(fig:introPenguins) and \@ref(fig:introPenguinMorphometry)). It will be useful for a variety of demonstrations using numerical morphometric variables as well as a couple of categorical factors (species and island).
+
+```{r introPenguins, fig.align = 'center', out.width = "75%", fig.cap = "The three penguin species in palmerpenguins. Photos by KB Gorman. Used with permission", echo=F}
+knitr::include_graphics(here::here("img", "PalmerPenguinsCrop.png"))
+```
+
+```{r introPenguinMorphometry, fig.align = 'center', out.width='60%', fig.cap = "Diagram of penguin head with indication of bill length and bill depth (from Horst, Hill, and Gorman (2020), used with permission)", echo=F}
+knitr::include_graphics(here::here("img","culmen_depth_600dpi.png"))
+```
+
+```{r introPalmerStation, include=F, echo=F} 
+#, fig.cap = "Palmer Station, Antarctic Peninsula"}
+library(tidyverse)
+library(sf); library(mapview); library(leaflet)
+palmerStaData <- tribble(
+  ~name, ~long, ~lat,
+  "Palmer Station", -64.05382, -64.77425)
+palmerSta <- st_as_sf(palmerStaData, coords=c("long", "lat"), crs=4326)
+m <- mapview(palmerSta, map.types = c("Esri.WorldImagery","Esri.WorldShadedRelief"))
+m@map %>% setView(palmerStaData$long, palmerStaData$lat, zoom = 4)
+```
+
+Then we can simply display the table with the method:
+
+```{r}
+penguins
+```
+
+> There are other, fancier table display methods described in https://bookdown.org/igisc/EnvDataSci/ .
+
+
+#### Creating a data frame out of a matrix
+
+\index{creating a data frame out of a matrix}There are many functions that start with `as.` that convert things to a desired type. We'll use \index{as.data.frame}`as.data.frame()` to create a data frame out of a matrix, the same `sierradata` we created earlier, but we'll build it again so it'll have variable names, and use yet another table display method from the **`knitr`** package (which also has a lot of options you might want to explore), which works well for both the html and pdf versions of this book, and creates numbered table headings, so I'll use it a lot (Table \@ref(tab:introSierraKable)).
+
+```{r introSierraKable}
+temp <- c(10.7,  9.7,  7.7,  9.2,  7.3,  6.7,  4.0,  5.0,  0.9, -1.1, -0.8,-4.4)
+elev <-   c(52,  394,  510,  564,  725,  848, 1042, 1225, 1486, 1775, 1899, 2551)
+lat <- c(39.52,38.91,37.97,38.70,39.09,39.25,39.94,37.75,40.35,39.33,39.17,38.21)
+sierradata <- cbind(temp, elev, lat)
+mydata <- as.data.frame(sierradata)
+mydata
+```
+
+Then to plot the two variables that are now part of the data frame, we'll need to make vectors out of them again using the \index{\$ accessor}**`$`** accessor (Figure \@ref(fig:introTempElev)).
+
+```{r introTempElev, fig.cap="Temperature and elevation scatter plot"}
+plot(mydata$elev, mydata$temp)
+```
+
+#### Read a data frame from a CSV
+
+\index{data frame from a CSV}We'll be looking at this more in the next chapter, but a common need is to read data from a spreadsheet stored in the CSV format. Normally, you'd have that stored with your project and can just specify the file name, but we'll access CSVs from the \index{igisci package}`igisci` package. Since you have this installed, it will already be on your computer, but not in your project folder. The path to it can be derived using the `system.file()` function.
+
+Reading a csv in \index{readr}`readr` (part of the tidyverse that we'll be looking at in the next chapter) is done with \index{read csv}`read_csv()` \@ref(fig:introTRIDT)  
+
+> We'll use the `DT::datatable` for this, because it lets you interactively scroll across the many variables, but you'll need to install 'DT' to use it; otherwise just try `TRI2017` to see what you get.
+
+```{r intro.DT}
+library(readr)
+csvPath <- system.file("extdata","TRI/TRI_2017_CA.csv", package="igisci")
+TRI2017 <- read_csv(csvPath)
+```
+```{r, eval=F}
+DT::datatable(TRI2017, options=list(scrollX=T))
+```
+```{r introTRIDT, out.width="100%", echo=F, fig.cap="TRI dataframe -- DT datatable output"}
+if (knitr::is_latex_output()) {
+  knitr::include_graphics(here::here("img","TRI_DT.png"))} else {
+    DT::datatable(TRI2017, options=list(scrollX=T))}
+```
+
+Note that we could have used the built-in `read.csv` function, but as you'll see later, there are advantages of `readr::read_csv` so we should get in the habit of using that instead. 
+
+#### Reorganizing data frames
+There are quite a few ways to reorganize your data in R, and we'll learn other methods in the next chapter where we start using the tidyverse, which makes data abstraction and transformation much easier. For now, we'll work with a simpler CSV I've prepared:
+
+```{r}
+csvPath <- system.file("extdata","TRI/TRI_1987_BaySites.csv", package="igisci")
+TRI87 <- read_csv(csvPath)
+TRI87
+```
+
+**Sort, Index, and Max/Min**
+
+One simple task is to \index{sort}sort data (numerically or by alphabetic order), such as a variable extracted as a vector.
+
+```{r intro.sort}
+head(sort(TRI87$air_releases))
+```
+
+... or create an index vector of the \index{order}order of our vector/variable...
+
+```{r}
+index <- order(TRI87$air_releases)
+```
+
+... where the index vector is just used to store the order of the `TRI87$air_releases` vector/variable; then we can use that index to display facilities in order of their air releases.
+
+```{r}
+head(TRI87$FACILITY_NAME[index])
+```
+
+This is similar to filtering for a subset. We can also pull out individual values using functions like `which.max` to find the desired index value:
+
+```{r}
+i_max <- which.max(TRI87$air_releases)
+TRI87$FACILITY_NAME[i_max]   # was NUMMI at the time
+```
+
+### Factors {#factors}
+
+\index{factors}Factors are vectors with predefined values, normally used for categorical data, and as R is a statistical language are frequently used to stratify data, such as defining groups for analysis of variance among those groups. They are built on an *integer* vector, and \index{factor levels}*levels* are the set of predefined values, which are commonly character data.
+
+```{r intro.nut}
+nut <- factor(c("almond", "walnut", "pecan", "almond"))
+str(nut)   # note that levels will be in alphabetical order
+typeof(nut)
+```
+
+As always, there are multiple ways of doing things.  Here's an equivalent conversion that illustrates their relation to integers:
+
+```{r intro.nutConv}
+nutint <- c(1, 2, 3, 2) # equivalent conversion
+nut <- factor(nutint, labels = c("almond", "pecan", "walnut"))
+str(nut)
+
+```
+
+#### Categorical data and factors
+
+\index{categorical data and factors}While character data might be seen as categorical (e.g. `"urban"`, `"agricultural"`, `"forest"` land covers), to be used as categorical variables they must be made into factors. So we have something to work with, we'll generate some \index{random}random memberships in one of three vegetation moisture categories using the \index{sample}`sample()` function:
+
+```{r intro.grainsize}
+veg_moisture_categories <- c("xeric", "mesic", "hydric")
+veg_moisture_char <- sample(veg_moisture_categories, 42, replace = TRUE)
+veg_moisture_fact <- factor(veg_moisture_char, levels = veg_moisture_categories)
+veg_moisture_char
+veg_moisture_fact
+```
+
+To make a categorical variable a factor:
+
+```{r intro.factor}
+nut <- c("almond", "walnut", "pecan", "almond")
+farm <- c("organic", "conventional", "organic", "organic")
+ag <- as.data.frame(cbind(nut, farm))
+ag$nut <- factor(ag$nut)
+ag$nut
+```
+
+**Factor example**
+
+```{r intro.factorExample}
+library(igisci)
+sierraFeb$COUNTY <- factor(sierraFeb$COUNTY)
+str(sierraFeb$COUNTY)
+```
+
+## Accessors and Subsetting {#accessors}
+
+The use of \index{accessors}*accessors* in R can be confusing, but they're very important to understand, especially for base R. An accessor is "a method for accessing data in an object usually an attribute of that object" (@Brown_R_accessors), so a method for subsetting, and for R these are \index{`[ ]` accessor}**`[]`**, \index{`[[ ]]` accessor}**`[[]]`**, and \index{\$ accessor}**`$`**, but it can be confusing to know when you might use which one. There are good reasons to have these three types for code clarity, however you can also use **`[]`** with a bit of clumsiness for all purposes.
+
+> To learn more about accessors and subsetting using base R, see the longer treatment in https://bookdown.org/igisc/EnvDataSci/ .
+
+
+### `$` Accessing a vector from a data frame
+
+The \index{\$ accessor}`$` accessor is really just a shortcut, but any shortcut reduces code and thus increases clarity, so it's a good idea and this accessor is commonly used. Their only limitation is that you can't use the integer indices, which would allow you to loop through a numerical sequence.
+
+These accessor operations do the same thing:
+
+```{r results='hide'}
+cars$speed
+cars[,"speed"]
+cars[["speed"]]
+```
+
+```{r echo=F}
+str(cars$speed)
+```
+
+## Programming scripts in RStudio {#programming}
+
+\index{programming scripts in RStudio}Given the exploratory nature of the R language, we sometimes forget that it provides significant capabilities as a programming language where we can solve more complex problems by coding procedures and using logic to control the process and handle a range of possible scenarios. 
+
+One programming structure is defining your own functions. One simple function I found useful for our external data in `igisci` is to simplify the code needed to access the external data. I found I had to keep looking up the syntax for that task that we use a lot. It also makes the code difficult to read. Adding this function to the top of your code helps for both:
+
+```{r}
+ex <- function(fnam){system.file("extdata",fnam,package="igisci")}
+```
+
+Then our code that accesses data is greatly simplified, with `read.csv` calls looking a lot like reading data stored in our project folder. For example, where if we had `fishdata.csv` stored locally in our project folder we might read it with ...
+
+`read.csv("fishdata.csv")`
+
+... reading from the data package's extdata folder looks pretty similar:
+
+`read.csv(ex("fishdata.csv"))`
+
+>This simple function was so useful that it's now included in the igisci package, so you can just call it with `ex()` if you have `library(igisci)` in your code.
+
+> To learn more about R programming structures, see the longer treatment in https://bookdown.org/igisc/EnvDataSci/ .
+
+
+### Apply functions {#apply}
+
+There are many \index{apply functions}apply functions in R, and they often obviate the need for looping (see the `for` loop in the longer book). For instance:
+
+-   `apply` derives values at margins of rows and columns, e.g. to sum across rows or down columns.
+
+```{r intro.apply}
+# matrix apply – the same would apply to data frames
+matrix12 <- 1:12
+dim(matrix12) <- c(3,4)
+rowsums <- apply(matrix12, 1, sum)
+colsums <- apply(matrix12, 2, sum)
+sum(rowsums)
+sum(colsums)
+zero <- sum(rowsums) - sum(colsums)
+matrix12
+```
+
+Apply functions satisfy one of the needs that spreadsheets are used for. Consider how often you use sum, mean, or similar functions in Excel.
+
+**`sapply`**
+
+\index{sapply}sapply applies functions to either:
+
+-   all elements of a vector -- unary functions only
+
+```{r intro.sapply}
+sapply(1:12, sqrt)
+```
+
+-   or all variables of a data frame (not a matrix), where it works much like a column-based apply (since variables are columns) but more easily interpreted without the need of specifying columns with 2:
+
+```{r intro.sapplycars}
+sapply(cars,mean)  # same as apply(cars,2,mean)
+```
+
+```{r intro.sapplyTemp}
+temp02 <- c(10.7,9.7,7.7,9.2,7.3,6.7,4.0,5.0,0.9,-1.1,-0.8,-4.4)
+temp03 <- c(13.1,11.4,9.4,10.9,8.9,8.4,6.7,7.6,2.8,1.6,1.2,-2.1)
+sapply(as.data.frame(cbind(temp02,temp03)),mean) # has to be a data frame
+```
+
+While various `apply` functions are in base R, the purrr package takes these further. See https://www.rstudio.com/resources/cheatsheets/ for more information on this and other packages in the RStudio/tidyverse world.
+
+## RStudio projects {#rstudio}
+
+\index{RStudio projects}So far, you've been using RStudio, and it organizes your code and data into a project folder. You should familiarize yourself with where things are being saved and where you can find things. Start by seeing your *working directory* with \index{getwd}:
+
+    getwd()
+
+When you create a new RStudio project with `File/New Project...`, it will set the working directory to the *project folder*, where you create the project. (You can change the working directory with `setwd()` but I don't recommend it.) The project folder is useful for keeping things organized and allowing you to use relative paths to your data and allow everything to be moved somewhere else and still work. The project file has the extension `.Rproj` and it will reside in the project folder. If you've saved any scripts (`.R`)or R Markdown (`.Rmd`) documents, they'll also reside in the project folder; and if you've saved any data, or if you want to read any data without providing the full path or using the `extdata` access method, those data files (e.g. `.csv`) will be in that project folder. You can see your scripts, R Markdown documents, and data files using the Files tab in the default lower right pane of RStudio.
+
+**RStudio projects** are going to be the way we'll want to work for the rest of this book, so you'll often want to create new ones for particular data sets so things don't get messy. And you may want to create data folders within your project folder, as we have in the `igisci` extdata folder, to keep things organized. Since we're using our `igisci` package, this is less of an issue since at least input data aren't stored in the project folder. However you're going to be creating data, so you'll want to manage your data in individual projects. You may want to start a new project for each data set, using File/New Project, and try to keep things organized (things can get messy fast!)
+
+In this book, we'll be making a lot of use of data provided for you from various data packages such as built-in data, `palmerpenguins` [@palmer], or `igisci`, but they correspond to specific research projects, such as Sierra Climate to which several data frames and spatial data apply. For this chapter, you can probably just use one project, but later you'll find it useful to create separate projects for each data set -- *such as a* **`sierra`** *project* and return to it every time it applies.
+
+In that project, you'll build a series of scripts, many of which you'll re-use to develop new methods. When you're working on your own project with your own data files, you should store these in a **`data`** folder inside the project folder. With the project folder as the default working directory, you can use \index{relative paths}*relative paths*, and everything will work even if the project folder is moved. So, for instance, you can specify **`"data/mydata.csv"`** *as the path* to a csv of that name. You can still access package data, including extdata folders and files, but your processed and saved or imported data will reside with your project.
+
+An \index{absolute paths}*absolute path* to somewhere on your computer in contrast won't work for anyone else trying to run your code; absolute paths should only be used for servers that other users have access to and URLs on the web.
+
+### R Markdown {#rmarkdown}
+
+An alternative to writing scripts is writing \index{R Markdown}*R Markdown* documents, which includes both formatted text (such as you're seeing in this book, like *italics* created using asterisks) and code chunks. R lends itself to running code in chunks, as opposed to creating complete tools that run all of the way through. This book is built from R Markdown documents organized in a bookdown structure, and most of the figures are created from R code chunks. There are also many good resources on writing R Markdown documents, including the very thorough *R Markdown: The Definitive Guide* [@RMarkdown].
+
+\pagebreak
+## Exercises: Introduction to R
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+:::{.exercise}
+Assign scalars for your name, city, state and zip code, and use `paste()` to combine them, and assign them to the object `me`. What is the class of `me`?
+:::
+```{r}
+name <- "Emperor Norton"
+city <- "San Francisco"
+state <- "CA"
+zipcode <- "94104"
+me <- paste(name,city,state,zipcode)
+me
+class(me)
+```
+
+:::{.exercise}
+You can create a vector uniform random numbers from 0 to 1 using `runif(n=30)` where n=30 says to make 30 of them. Use the `round()` function to round *each* of the values (it vectorizes them), and provide what you created and explain what happened.
+
+```{r}
+round(runif(30))
+```
+:::
+
+:::{.exercise}
+Create two vectors `x` and `y` of 10 numbers each with the c() function, then assigning to x and y. Then plot(x,y), and provide the three lines of code you used to do the assignment and plot.
+:::
+```{r}
+x <- c(3,7,9,2,4,9,3,0,2,1)
+y <- c(0,1,2,3,4,9,8,7,6,5)
+plot(x,y)
+```
+
+
+:::{.exercise}
+Referring to the **Matrices** section, create the same `sierradata` matrix using the same data vectors repeated here ...
+```{r}
+temp <- c(10.7, 9.7,  7.7,  9.2,  7.3,  6.7,   4.0,  5.0,  0.9, -1.1, -0.8,-4.4)
+elev <- c(52,   394,  510,  564,  725,  848,  1042, 1225, 1486, 1775, 1899, 2551)
+lat <-  c(39.52,38.91,37.97,38.70,39.09,39.25,39.94,37.75,40.35,39.33,39.17,38.21)
+```
+
+... then convert it to a data frame (using the same `sierradata` object name), and *from that data frame* plot temperature (`temp`) against latitude (`lat`).
+
+```{r}
+temp <- c(10.7, 9.7,  7.7,  9.2,  7.3,  6.7,   4.0,  5.0,  0.9, -1.1, -0.8,-4.4)
+elev <- c(52,   394,  510,  564,  725,  848,  1042, 1225, 1486, 1775, 1899, 2551)
+lat <-  c(39.52,38.91,37.97,38.70,39.09,39.25,39.94,37.75,40.35,39.33,39.17,38.21)
+sierradata<-as.data.frame(cbind(temp,elev,lat))
+plot(sierradata$temp, sierradata$lat)
+```
+:::
+
+:::{.exercise}
+From that `sierradata` data frame, derive colmeans using the `mean` parameter on the columns `2` for `apply()`. 
+:::
+
+```{r}
+apply(sierradata,2,mean)
+```
+
+:::{.exercise}
+Do the same thing with the sierra data frame with `sapply()`. 
+
+```{r}
+sapply(sierradata,mean)
+```
+:::

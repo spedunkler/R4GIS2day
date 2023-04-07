@@ -1,0 +1,552 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = "75%")
+```
+
+# Visualization {#visualization}
+
+```{r echo=F, out.width="90%"}
+library(palmerpenguins); library(tidyverse)
+penguins %>%
+  dplyr::select(species, body_mass_g, ends_with("_mm")) %>%
+  GGally::ggpairs(aes(color = species, alpha = 0.8)) +
+  scale_colour_manual(values = c("darkorange","purple","cyan4")) +
+  scale_fill_manual(values = c("darkorange","purple","cyan4"))
+```
+
+In this section we'll explore visualization methods in R. Visualization has been a key element of R since its inception, since visualization is central to the exploratory philosophy of the language. 
+
+## plot in base R
+In this chapter, we'll spend a lot more time looking at `ggplot2` due to its clear syntax using the *grammar of graphics*. However, the base R `plot` system generally does a good job in coming up with the most likely graphical output based on the data you provide, so we'll use it from time to time. Through the book you'll see various references to its use, including setting graphical parameters with `par` such as the `cex` for defining the relative size of text characters and point symbols, `lty` and `lwd` for line type and width, and *many* others. Users are encouraged to explore these with `?par` to learn about parameters (even things like creating multiple plots using `mfrow` as you can see in Figure \@ref(fig:visFlipperLength)), and `?plot` to learn more overall about the generic X-Y plotting system.
+
+```{r _Visualization_, vis.penguinPlots, include=FALSE}
+library(tidyverse)
+library(palmerpenguins)
+```
+
+```{r visFlipperLength, out.width="100%", fig.cap="Flipper length by mass and by species, base plot system. The Antarctic peninsula penguin data set is from @palmer."}
+par(mfrow=c(1,2))
+plot(penguins$body_mass_g, penguins$flipper_length_mm,
+     cex=0.5) # half-size point symbol
+plot(penguins$species, penguins$flipper_length_mm,
+     ylab="flipper length (mm)",
+     xlab="species")
+```
+```{r echo=F}
+par(mfrow=c(1,1))
+```
+
+
+## ggplot2
+
+\index{ggplot2}We'll mostly focus however on gpplot2, based on the *Grammar of Graphics* because it provides considerable control over your graphics while remaining fairly easily readable, as long as you buy into its grammar.
+
+The `ggplot2` app (and its primary function `ggplot`) looks at three aspects of a graph:
+
+-   data : where are the data coming from?
+-   geometry : what type of graph are we creating?
+-   \index{aesthetics}aesthetics : what choices can we make about symbology and how do we connect symbology to data?
+
+As with other tidyverse and RStudio packages, find the ggplot2 cheat sheet at <https://www.rstudio.com/resources/cheatsheets/>
+
+## Plotting one variable
+The `ggplot` function provides plots of single and multiple variables, using various coordinate systems (including geographic). We'll start with just plotting one variable, which might be *continuous* -- where we might want to see a histogram, density plot, or dot plot -- or *discrete* -- where we might want to see something like a a bar graph, like the first example below (Figure \@ref(fig:visSimpleBarGraph)).
+
+We'll look at a study of Normalized Difference Vegetation Index from a transect across a montane meadow in the northern Sierra Nevada, derived from multispectral drone imagery [@NDVI].
+
+```{r vis.ggplot.geom_bar, message=F}
+library(igisci)
+library(tidyverse)
+summary(XSptsNDVI)
+```
+
+```{r visSimpleBarGraph,  fig.cap="Simple bar graph of meadow vegetation samples"}
+ggplot(XSptsNDVI, aes(vegetation)) + 
+  geom_bar()
+```
+
+### Histogram {#histogram}
+
+\index{histogram}Histograms are very useful for looking at the distribution of continuous variables (Figure \@ref(fig:visNDVIknuthson)). We'll start by using a pivot table (these will be discussed in the next chapter, on data transformation.)  
+
+```{r vis.pivot4plot, message=F}
+XSptsPheno <- XSptsNDVI %>%
+  filter(vegetation != "pine") %>%
+  pivot_longer(cols = starts_with("NDVI"), 
+               names_to = "phenology", 
+               values_to = "NDVI") %>%
+  mutate(phenology = str_sub(phenology, 5, str_length(phenology)))
+```
+
+```{r visNDVIknuthson, fig.cap="Distribution of NDVI, Knuthson Meadow"}
+XSptsPheno %>%
+  ggplot(aes(NDVI)) + 
+  geom_histogram(binwidth=0.05)
+```
+
+Histograms can be created in a couple of ways, one the conventional histogram that provides the most familiar view, for instance of the "bell curve" of a normal distribution (Figure \@ref(fig:visTemperaturesHisto)).
+
+```{r visTemperaturesHisto, fig.cap="Distribution of Average Monthly Temperatures, Sierra Nevada"}
+sierraData %>%
+    ggplot(aes(TEMPERATURE)) +
+  geom_histogram(fill="dark green")
+```
+
+Alternatively we can look at a \index{histogram, cumulative}*cumulative* histogram, which makes it easier to see percentiles and the median (50th percentile), by using the `cumsum()` function (Figure \@ref(fig:visCumHisto)).
+
+```{r visCumHisto, fig.cap="Cumulative Distribution of Average Monthly Temperatures, Sierra Nevada"}
+n <- length(sierraData$TEMPERATURE)
+sierraData %>%
+  ggplot(aes(TEMPERATURE)) +
+  geom_histogram(aes(y=cumsum(..count..)/n), fill="dark goldenrod")
+
+```
+
+### Density plot
+
+\index{density plot}Density represents how much out of the total. The total area (sum of widths of bins times densities of that bin) adds up to 1. We'll use a density plot to looking at our NDVI data again (Figure \@ref(fig:visDensNDVI)).
+
+```{r visDensNDVI, fig.cap="Density plot of NDVI, Knuthson Meadow"}
+XSptsPheno %>% 
+  ggplot(aes(NDVI)) + 
+  geom_density()
+```
+
+>Note that NDVI values are \<1 so bins are very small numbers, so in this case densities can be \>1.
+
+To communicate more information, we might want to use color and \index{alpha}transparency (alpha) settings. The following graph (Figure \@ref(fig:visDensityAlpha)) will separate the data by phenology ('growing' vs. 'senescence' seasons) using color, and use the alpha setting to allow these overlapping distributions to both be seen. To do this, we'll:
+
+-   "map" a variable (phenology) to an aesthetic property (fill color of the density polygon)
+-   set a a property (alpha = 0.2) to all polygons of the density plot. The alpha channel of colors defines its opacity, from invisible (0) to opaque (1) so is commonly used to set as its reverse, transparency.
+
+```{r visDensityAlpha, fig.cap="Comparative density plot using alpha setting"}
+XSptsPheno %>%
+  ggplot(aes(NDVI, fill=phenology)) +
+  geom_density(alpha=0.2)
+```
+
+> Why is the color called \index{fill}**fill**? For polygons, "color" is used for the boundary.
+
+Similarly for the eucalyptus & oak study, we can overlay the two distributions (Figure \@ref(fig:visRunoffEucOak)). Since the two distributions overlap considerably, the benefit of the alpha settings is clear.
+
+```{r visRunoffEucOak, fig.cap="Runoff under Eucalyptus and Oak in Bay Area sites"}
+tidy_eucoak %>%
+  ggplot(aes(log(runoff_L),fill=tree)) +
+  geom_density(alpha=0.2)
+```
+
+### boxplot
+
+Tukey \index{boxplot}boxplots provide another way of looking at the distributions of continuous variables. Typically these are stratified by a factor, such as `site` in the euc/oak study (Figure \@ref(fig:visBoxplotByRunoff)): 
+```{r visBoxplotByRunoff, fig.cap="Boxplot of runoff by site"}
+ggplot(data = tidy_eucoak) +
+  geom_boxplot(aes(x = site, y = runoff_L))
+```
+
+And then as we did above, we can communicate more by coloring by tree type. Note that this is called *within* the \index{aes}`aes()` function (Figure \@ref(fig:visEucOakRunoffColored)).
+
+```{r visEucOakRunoffColored, fig.cap="Runoff at Bay Area Sites, colored as Eucalyptus and Oak"}
+ggplot(data = tidy_eucoak) +
+  geom_boxplot(aes(x=site, y=runoff_L, color=tree))
+
+```
+
+**Visualizing soil CO~2~ data with a box plot**
+
+In a study of soil CO~2~ in the \index{Marble Mountains}Marble Mountains of California [@marblesCO2], we sampled extracted soil air (Figure \@ref(fig:visSoilGasSampling)) in a 11-point transect across Marble Valley in 1997 (Figure \@ref(fig:visMarblesSitesTopo)). Again, a Tukey boxplot is useful for visualization (Figure \@ref(fig:visSoilTukey)).
+
+>Note that in this book you'll often see CO~2~ written as CO2. These are both meant to refer to carbon dioxide, but I've learned that subscripts in figure headings don't always get passed through to the LaTeX compiler for the pdf/printed version, so I'm forced to write it without the subscript. Similarly CH~4~ might be written as CH4, etc. The same applies often to variable names and axis labels in graphs, though there are some workarounds.
+
+```{r visSoilGasSampling, fig.cap = "Marble Valley, Marble Mountains Wilderness, California", echo=F}
+knitr::include_graphics(here::here("img", "marbleGap.png"))
+```
+
+```{r visMarblesSitesTopo, out.width="50%", fig.cap = "Marble Mountains soil gas sampling sites, with surface topographic features and cave passages", echo=F}
+knitr::include_graphics(here::here("img", "marblesCO2map.png"))
+```
+
+```{r visSoilTukey, fig.cap = "Visualizing soil CO2 data with a Tukey box plot"}
+soilCO2 <- soilCO2_97
+soilCO2$SITE <- factor(soilCO2$SITE)  # in order to make the numeric field a factor
+ggplot(data = soilCO2, mapping = aes(x = SITE, y = CO2pct)) +
+  geom_boxplot()
+
+```
+
+## Plotting two variables
+
+### Two continuous variables
+
+\index{continuous variables}We've looked at this before -- the scatterplot -- but let's try some new data: daily discharge (Q) and other data (like EC, electrical conductivity, a surrogate for solute concentration) from Sagehen Creek, north of Truckee, CA, 1970 to present. I downloaded the data for this location (which I've visited multiple times to chat with the USGS hydrologist about calibration methods with my Sierra Nevada Field Campus students) from the <https://waterdata.usgs.gov/nwis/sw> site (Figure \@ref(fig:visSagehenScatterplot)). If you visit this site, you can download similar data from thousands of surface water (as well as groundwater) gauges around the country.
+
+```{r visSagehenScatterplot, fig.cap="Scatter plot of Discharge (Q) and specific electrical conductance (EC) for Sagehen Creek, California"}
+library(tidyverse); library(lubridate); library(igisci)
+sagehen <- read_csv(ex("sierra/sagehen_dv.csv"))
+plot(sagehen$Q,sagehen$EC)
+```
+
+\index{streamflow}Streamflow and \index{water quality}water quality are commonly best represented using a log transform, or we can just use log scaling, which retains the original units (Figure \@ref(fig:visSagehenQEClog10)).
+
+```{r visSagehenQEClog10, fig.cap="Q and EC for Sagehen Creek, using log10 scaling on both axes"}
+ggplot(data=sagehen, aes(x=Q, y=EC)) + geom_point() +
+  scale_x_log10() + scale_y_log10()
+```
+
+-   For both graphs, the `aes` ("aesthetics") function specifies the variables to use as x and y coordinates
+-   geom_point creates a scatter plot of those coordinate points
+
+**Set color for all (*not* in `aes()`)**
+
+\index{color for all symbols}Sometimes all you want is a simple graph with one color for all points (Figure \@ref(fig:visOneColor)). Note that:
+
+-   color is defined outside of `aes`, so is applies to all points.
+-   mapping is first argument of `geom_point`, so `mapping =` is not needed.
+
+```{r visOneColor, fig.cap="Setting one color for all points"}
+ggplot(data=sierraFeb) + 
+  geom_point(aes(TEMPERATURE, ELEVATION), color="blue")
+```
+
+### Two variables, one discrete
+\index{discrete variable}We've already looked at bringing in a factor to a histogram and a boxplot, but there's the even simpler bar graph that does this, if we're just interested in comparing values. This graph compares runoff by site (Figure \@ref(fig:vis2var1discrete)). 
+
+```{r vis2var1discrete, fig.cap="Two variables, one discrete"}
+ggplot(tidy_eucoak) +
+  geom_bar(aes(site, runoff_L), stat="identity")
+```
+
+> Note that we also used the `geom_bar` graph earlier for a single discrete variable, but instead of displaying a continuous variable like runoff, it just displayed the count (frequency) of observations, so was a type of histogram.
+
+## Color systems
+
+\index{color systems}There's a lot to working with color, with different color schemes needed for continuous data vs discrete values, and situations like bidirectional data. We'll look into some basics, but the reader is recommended to learn more at sources like <https://cran.r-project.org/web/packages/RColorBrewer/index.html> or <https://colorbrewer2.org/> or just Googling "rcolorbrewer" or "colorbrewer" or even "R colors".
+
+
+### Specifying colors to use for a graphical element
+
+When a color is requested for an entire graphical element, like geom_point or geom_line, and *not* in the aesthetics, all feature get that color. In the following graph the same x & y values are used to display as points in blue and as lines in red (Figure \@ref(fig:visAestheticsPtsLines)).
+
+```{r visAestheticsPtsLines, fig.cap="Using aesthetics settings for both points and lines"}
+sierraFeb %>%
+  ggplot(aes(TEMPERATURE,ELEVATION)) +
+  geom_point(color="blue") +
+  geom_line(color="red")
+```
+
+> Note the use of pipe to start with the data then apply ggplot. This is one approach for creating graphs, and provides a fairly straightforward way to progress from data to visualization.
+
+### Color from variable, in aesthetics
+
+\index{aesthetics}\index{color from variable}If color is connected to a variable within the `aes()` call, a color scheme is chosen to assign either a range (for continuous) or a set of unique colors (for discrete). In this graph, color is defined inside `aes`, so is based on COUNTY (Figure \@ref(fig:visColorFromVar)).
+
+```{r visColorFromVar, fig.cap="Color set within aes()"}
+ggplot(data=sierraFeb) + 
+  geom_point(aes(TEMPERATURE, ELEVATION, color=COUNTY))
+
+```
+
+Note that counties represent discrete data, and this is detected by ggplot to assign an appropriate color scheme. Continuous data will require a different palette (Figure \@ref(fig:visSagehenQECcolorTemp)).
+
+```{r visSagehenQECcolorTemp, fig.cap="Streamflow (Q) and specific electrical conductance (EC) for Sagehen Creek, colored by temperature"}
+ggplot(data=sagehen, aes(x=Q, y=EC, col=waterTmax)) + geom_point() +
+  scale_x_log10() + scale_y_log10()
+```
+
+**River map & profile**
+
+\index{profile}We'll build a `riverData` dataframe with x & y location values and elevation. We'll need to start by creating empty vectors we'll populate with values in a loop: `d`, `longd` and `s` are assigned an empty value `double()`, then slope `s` (since it only occurs between two points) needs one `NA` value assigned for the last point `s[length(x]` to have the same length as other vectors.
+
+```{r visLongProfiles}
+library(tidyverse)
+x <- c(1000, 1100, 1300, 1500, 1600, 1800, 1900)
+y <- c(500, 780, 820, 950, 1250, 1320, 1500)
+elev <- c(0, 1, 2, 5, 25, 75, 150)
+d <- double()      # creates an empty numeric vector 
+longd <- double()  # ("double" means double-precision floating point)
+s <- double()
+for(i in 1:length(x)){
+  if(i==1){longd[i] <- 0; d[i] <-0}
+  else{
+    d[i] <- sqrt((x[i]-x[i-1])^2 + (y[i]-y[i-1])^2)
+    longd[i] <- longd[i-1] + d[i]
+    s[i-1] <- (elev[i]-elev[i-1])/d[i]}}
+s[length(x)] <- NA  # make the last slope value NA since we have no data past it, 
+                    # and so the vector lengths are all the same
+riverData <- bind_cols(x=x,y=y,elev=elev,d=d,longd=longd,s=s)
+riverData
+```
+
+For this continuous data, a range of values is detected and a continous color scheme is assigned (Figure \@ref(fig:visGreenRed)). The ggplot `scale_color_gradient` function is used to establish end points of a color range that the data are stretched between  (Figure \@ref(fig:visGreenRedLongProf)). We can use this for many continuous variables, such as slope (Figure \@ref(fig:visSlopeLong)). The `scale_color_gradient2` lets you use a `mid` color. Note that there's a comparable `scale_fill_gradient` and `scale_fill_gradient2` for use when specifying a fill (e.g. for a polygon) instead of a color (for polygons linked to the border).
+
+```{r visGreenRed, fig.cap="Channel slope as range of colors from green to red, vertices sized by elevation"}
+ggplot(riverData, aes(x,y)) +
+  geom_line(mapping=aes(col=s), size=1.2) + 
+  geom_point(mapping=aes(col=s, size=elev)) +
+  coord_fixed(ratio=1) + scale_color_gradient(low="green", high="red") +
+  ggtitle("Simulated river path, elevations and slopes")
+```
+
+```{r visGreenRedLongProf, fig.cap="Channel slope as range of line colors on a longitudinal profile"}
+ggplot(riverData, aes(longd,elev)) + geom_line(aes(col=s), size=1.5) + geom_point()  +
+  scale_color_gradient(low="green", high="red") +
+  ggtitle("Longitudinal profile")
+```
+
+```{r visSlopeLong, fig.cap="Channel slope by longitudinal distance as scatter points colored by slope"}
+ggplot(riverData, aes(longd,s)) + geom_point(aes(col=s), size=3) +
+  scale_color_gradient(low="green", high="red") +
+  ggtitle("Slope by longitudinal distance upstream")
+```
+
+### Trend line
+
+\index{trend line}When we get to statistical models, the first one we'll look at is a simple linear model. It's often useful to display this as a *trend line*, and this can be done with ggplot2's `geom_smooth()` function, specifying the linear model "lm" method. By default, the graph displays the standard error as a gray pattern (Figure \@ref(fig:visTrendLine)).
+
+```{r visTrendLine, fig.cap="Trend line with a linear model"}
+sierraFeb %>%
+  ggplot(aes(TEMPERATURE,ELEVATION)) +
+  geom_point(color="blue") +
+  geom_smooth(color="red", method="lm")
+```
+
+### General symbology
+
+There's a lot to learn about symbology in graphs. We've included the basics, but readers are encouraged to also explore further. A useful vignette accessed by `vignette("ggplot2-specs")` lets you see aesthetic specifications for symbols, including:
+
+-   Color & fill
+
+-   Lines
+
+    -   line type, size, ends
+
+-   Polygon
+
+    -   border color, linetype, size
+    -   fill
+
+-   Points
+
+    -   shape
+    -   size
+    -   color & fill
+    -   stroke
+
+-   Text
+
+    -   font face & size
+    -   justification
+
+#### Categorical symbology
+
+\index{categorical symbology}One example of a "big data" resource is EPA's Toxic Release Inventory that tracks releases from a wide array of sources, from oil refineries on down. One way of dealing with big data in terms of exploring meaning is to use symbology to try to make sense of it (Figure \@ref(fig:visTRIcategorical)).
+
+```{r visTRIcategorical, fig.cap="EPA TRI, categorical symbology for industry sector"}
+library(igisci)
+TRI <- read_csv(ex("TRI/TRI_2017_CA.csv")) %>%
+  filter(`5.1_FUGITIVE_AIR` > 100 & 
+         `5.2_STACK_AIR` > 100 & 
+         `INDUSTRY_SECTOR` != "Other")
+ggplot(data = TRI, aes(log(`5.2_STACK_AIR`), log(`5.1_FUGITIVE_AIR`), 
+                       color = INDUSTRY_SECTOR)) +
+       geom_point()
+```
+
+#### Log scales instead of transform
+
+\index{log scales}In the above graph, we used the log() function in aes to use natural logarithms instead of the actual value. That's a simple way to do this. But what if we want to display the original data, just using a logarithmic grid? This might communicate better since readers would see the actual values (Figure \@ref(fig:visLogScalesTRI)).
+
+```{r visLogScalesTRI, fig.cap="Using log scales instead of transforming"}
+ggplot(data=TRI, aes(`5.2_STACK_AIR`,`5.1_FUGITIVE_AIR`,color=INDUSTRY_SECTOR)) +
+       geom_point() + scale_x_log10() + scale_y_log10()
+
+```
+
+#### Graphs from grouped data
+
+\index{grouped data}Earlier in this chapter, we used a pivot table to create a data frame `XSptsPheno` which has NDVI values for phenology factors.  [You may need to run that again if you haven't run it yet this session.] We can create graphs showing the relationship of NDVI and elevation grouped by phenology (Figure \@ref(fig:visNDVIpheno)).  
+
+
+```{r visNDVIpheno, fig.cap="NDVI symbolized by vegetation in two seasons"}
+XSptsPheno %>%
+  ggplot() +
+  geom_point(aes(elevation, NDVI, shape=vegetation, 
+                 color = phenology), size = 3) +
+  geom_smooth(aes(elevation, NDVI, 
+                 color = phenology), method="lm") 
+```
+
+And similarly, we can create graphs of rainfall vs. runoff for eucs and oaks from the `tidy_eucoak` dataframe from the @eucoak study [and you may need to run that again to prep the data] (Figure \@ref(fig:visEucOakRainfallRunoff)).
+
+```{r visEucOakRainfallRunoff, fig.cap="Eucalyptus and Oak: rainfall and runoff"}
+ggplot(data = tidy_eucoak) +
+  geom_point(mapping = aes(x = rain_mm, y = runoff_L, color = tree)) +
+  geom_smooth(mapping = aes(x = rain_mm, y= runoff_L, color = tree), 
+              method = "lm") +
+  scale_color_manual(values = c("seagreen4", "orange3"))
+
+```
+
+#### Faceted graphs
+
+\index{faceted graphs}A theme we've already seen in this chapter is communicating more by comparing data on the same graph. We've been using symbology for that, but another approach is to create parallel groups of graphs called "faceted graphs" (Figure \@ref(fig:visFacetedGraph)).
+
+```{r visFacetedGraph, fig.cap="Faceted graph alternative to color grouping (note that the y scale is the same for each)"}
+ggplot(data = tidy_eucoak) +
+  geom_point(aes(x=rain_mm,y=runoff_L)) +
+  geom_smooth(aes(x=rain_mm,y=runoff_L), method="lm") +
+  facet_grid(tree ~ .)
+
+```
+
+Note that the y scale is the same for each, which is normally what you want since each graph is representing the same variable. If you were displaying different variables, however, you'd want to use the `scales = "free_y"` setting. 
+
+> Again, we'll learn about pivot tables in the next chapter to set up our data.
+
+## Titles and subtitles
+
+\index{titles}All graphs need titles, and ggplot2 uses its `labs()` function for this (Figure \@ref(fig:visTitles)).
+
+```{r visTitles, fig.cap="Titles added"}
+ggplot(data = tidy_eucoak) +
+  geom_point(aes(x=rain_mm,y=runoff_L, color=tree)) +
+  geom_smooth(aes(x=rain_mm,y=runoff_L, color=tree), method="lm") +
+  scale_color_manual(values=c("seagreen4","orange3")) +
+  labs(title="rainfall ~ runoff", 
+       subtitle="eucalyptus & oak sites, 2016")
+
+```
+
+## Pairs plot
+
+\index{pairs plot}Pairs plots are an excellent exploratory tool to see which variables are correlated. Since only continuous data are useful for this, and since pairs plots can quickly get overly complex, it's good to use `dplyr::select` to select the continuous variables, or maybe use a helper function like `is.numeric` with `dplyr::select_if` (Figure \@ref(fig:visPairsPlot)).
+
+```{r visPairsPlot, fig.cap="Pairs plot for Sierra Nevada stations variables"}
+sierraFeb %>%
+     dplyr::select(ELEVATION:TEMPERATURE) %>%
+     pairs()
+```
+
+The GGally package has a very nice looking pairs plot that takes it even further. In addition to scatterplots it has boxplots, histograms, density plots, and correlations, all stratified and colored by species. The code for this figure is mostly borrowed from @palmer (Figure \@ref(fig:visGGallyPenguins)).
+
+```{r visGGallyPenguins, fig.cap="Enhanced GGally pairs plot for palmerpenguin data"}
+library(palmerpenguins)
+penguins %>%
+  dplyr::select(species, body_mass_g, ends_with("_mm")) %>%
+  GGally::ggpairs(aes(color = species, alpha = 0.8)) +
+  scale_colour_manual(values = c("darkorange","purple","cyan4")) +
+  scale_fill_manual(values = c("darkorange","purple","cyan4"))
+```
+
+## Exercises {-}
+
+:::{.exercise}
+Create a bar graph of the counts of the species in the **`penguins`** data frame [@palmer]. What can you say about what it shows?
+
+```{r vis.ex1, include=T}
+library(tidyverse); library(palmerpenguins)
+ggplot(penguins, aes(species)) + geom_bar()
+plot(penguins$species)
+```
+:::
+
+:::{.exercise}
+Use `bind_cols` in `dplyr` to create a tibble from built-in vectors `state.abb` and `state.region`, then use `ggplot` with `geom_bar` to create a bar graph of the four regions.
+
+```{r vis.ex2, include=T}
+library(tidyverse)
+regions <- bind_cols(state.abb, state.region)
+ggplot(regions, aes(state.region)) + geom_bar()
+```
+:::
+
+:::{.exercise}
+Convert the built-in time series `treering` into a tibble `tr` using the `tibble()` function with the single variable assigned as `treering = treering` (or just specifying `treering` will also work for this simple example), then create a histogram, using that tibble and variable for the `data` and `x` settings needed. Attach a screen capture of the histogram. (Also, learn about the treering data by entering `?treering` in the console and read the Help displayed.)
+
+```{r vis.ex3, include=T}
+library(tidyverse)
+tr <- tibble(treering = treering)
+str(tr)
+ggplot(data=tr, aes(x=treering)) + geom_histogram()
+```
+:::
+
+:::{.exercise}
+Start by clearing your environment with the broom icon in the Environment tab, then we'll create two tibbles: Create a new tibble `st` using `bind_cols` with `Name=state.name`, `Abb=state.abb`, `Region=state.region`, and `as_tibble(state.x77)`. *Note that this works since all of the parts are sorted by state.* Then use `summary(st)` and copy and paste its results for your answer.
+
+```{r vis.ex4, include=T}
+st <- as_tibble(state.x77)
+library(tidyverse)
+st <- bind_cols(Name=state.name, Abb=state.abb, Region=state.region, as_tibble(state.x77))
+summary(st)
+```
+:::
+
+:::{.exercise}
+From `st`, create a density plot from the variable `Frost` (number of days with frost for that state). Attach that plot, and answer: approximately what is the modal value?
+
+```{r vis.ex5, include=T}
+#st <- as_tibble(state.x77)
+ggplot(data=st, aes(x=Frost)) + geom_density()
+```
+:::
+
+:::{.exercise}
+From `st` create a a boxplot of `Area` by `Region`. Which region has the highest and which has the lowest median Area? Do the same for `Frost`.
+
+```{r vis.ex6, include=T}
+ggplot(data=st, aes(x=Region, y=Area)) + geom_boxplot()
+ggplot(data=st, aes(x=Region, y=Frost)) + geom_boxplot()
+```
+:::
+
+:::{.exercise}
+From `st`, compare murder rate (y is `Murder`) to `Frost` (as x) in a scatter plot, colored by `Region`.
+
+```{r vis.ex7, include=T}
+st %>%
+  ggplot(aes(x=Frost, y=Murder)) + geom_point(aes(col=Region))
+#print(st$Name[which.max(st$Murder)])
+```
+:::
+
+:::{.exercise}
+Add a trend line (smooth) with method="lm" to your scatterplot, not colored by `Region` (but keep the points colored by region). What can you say about what this graph is showing you?
+
+```{r vis.ex8, include=T}
+st %>%
+  ggplot(aes(x=Frost, y=Murder)) + geom_point(aes(col=Region)) + geom_smooth(method="lm")
+cor.test(st$Frost, st$Murder)
+#print(st$Name[which.max(st$Murder)])
+```
+:::
+
+:::{.exercise}
+Add a title to your graph.
+
+```{r vis.ex9, include=T}
+st %>%
+  ggplot(aes(x=Frost, y=Murder)) + geom_point(aes(col=Region)) + geom_smooth(method="lm") +
+  labs(title="Frost and Murder Rate")
+```
+:::
+
+:::{.exercise}
+Change your scatterplot to place labels using the `Abb` variable (still colored by Region) using `geom_label(aes(label=Abb, col=Region))`. Any observations about outliers?
+
+```{r vis.ex10, include=T}
+st %>%
+  ggplot(aes(x=Frost, y=Murder)) + geom_label(aes(label=Abb, col=Region)) + geom_smooth(method="lm")
+
+```
+:::
+
+:::{.exercise}
+Change the boxplot of CO2 soil samples by site to use a log10 scale grid but display the original numbers (i.e., not in aes()).
+
+```{r vis.ex11, include=F}
+soilCO2 <- soilCO2_97
+soilCO2$SITE <- factor(soilCO2$SITE)  # in order to make the numeric field a factor
+ggplot(data = soilCO2, mapping = aes(x = SITE, y = CO2pct)) +
+  geom_boxplot() + scale_y_log10()
+
+```
+:::

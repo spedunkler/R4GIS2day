@@ -1,0 +1,38 @@
+
+output:
+  html_document:
+    df_print: paged
+geometry: margin=0.75in
+header-includes: \AtBeginDocument{\frontmatter}
+  classoption: krantz2
+
+Removed from _output.yml
+  #fontsize: 12pt
+  #monofont: "Source Code Pro"
+  #monofontoptions: "Scale=0.7"
+  #toc_unnumbered: no      # changed to no in crc-master
+  #toc_appendix: true      # added from crc-master
+  #pandoc_args: --top-level-division=chapter
+  #latex_engine: xelatex
+  #citation_package: natbib
+
+  
+Removed from index.Rmd
+```{js, include=FALSE, echo = FALSE}
+title=document.getElementById('header');
+title.innerHTML = '<img src="img/eaRth_anna_trimmed.png" alt="Test Image">' + title.innerHTML
+```
+
+
+- book.bib
+- packages.bib
+
+
+output: pdf_document
+
+Removed from before_body.tex
+\begin{center}
+\includegraphics{img/eaRth_anna_trimmed.png}
+"Dandelion fluff -- Ephemeral stalk sheds seeds to the universe" by Anna Studwell
+\end{center}
+

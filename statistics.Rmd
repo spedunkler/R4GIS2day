@@ -1,0 +1,640 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# (PART) Statistics and Modeling {.unnumbered}
+
+# Statistical Summaries and Tests {#statistics}
+
+```{r StatSummariesTestsChapter, echo=F}
+library(igisci); library(tidyverse)
+XSptsPheno <- XSptsNDVI %>%
+      pivot_longer(cols = starts_with("NDVI"), 
+                   names_to = "phenology", values_to = "NDVI") %>%
+      mutate(phenology = str_sub(phenology, 5, str_length(phenology)))
+XSptsPheno %>%
+  ggplot(aes(NDVI, fill=phenology)) +
+  geom_density(alpha=0.2)
+```
+
+## Goals of Statistical Analysis
+
+\index{statistical analysis}To frame how we might approach statistical analysis and modeling, there are various goals that are commonly involved:
+
+-   To understand our data
+
+    -   nature of our data, through summary statistics and various graphics like histograms
+    -   spatial statistical analysis
+    -   time series analysis
+
+-   To *group* or *classify* things based on their properties
+
+    -   using factors to define groups, and deriving grouped summaries
+    -   comparing *observed* vs *expected* counts or probabilities
+
+-   To understand how variables relate to one another
+
+    -   or maybe even explain variations in other variables, through correlation analysis
+
+-   To *model* behavior and maybe *predict* it
+
+    -   various linear models
+
+-   To *confirm* our observations from exploration (field/lab/vis)
+
+    -   inferential statistics e.g. difference of means tests, ANOVA, $\chi^2$
+
+-   To have the confidence to draw conclusions, make informed decisions
+
+-   To help *communicate* our work
+
+These goals can be seen in the context of a typical research paper or thesis outline in environmental science:
+
+-   Introduction
+
+-   Literature Review
+
+-   Methodology
+
+-   Results
+
+    -   field, lab, geospatial data
+
+-   Analysis
+
+    -   statistical analysis
+    -   qualitative analysis
+    -   visualization
+
+-   Discussion
+
+    -   making sense of analysis
+    -   possibly recursive, with visualization
+
+-   Conclusion
+
+    -   conclusion about what the above shows
+    -   new questions for further research
+    -   possible policy recommendation
+
+The scope and theory of statistical analysis and models is extensive, and there are many good books on the subject that employ the R language, including sources that focus on environmental topics like water resources (e.g. @StatisticalMethodsWaterResources). This chapter is a short review of some of these methods and how they apply to environmental data science. 
+
+## Summary Statistics
+
+\index{summary statistics}Summary statistics such as mean, standard deviation, variance, minimum, maximum, and range are derived in quite a few R functions, commonly as a parameter or a sub-function (see `mutate`). An overall simple statistical summary is very easy to do in base R:
+
+```{r message=F}
+summary(tidy_eucoak)
+```
+
+### Summarize by group: *stratifying a summary*
+
+\index{grouped summary}\index{stratification}In the visualization chapter and elsewhere, we've seen the value of adding symbolization based on a categorical variable or factor. Summarizing by group has a similar benefit, and provides a tabular output in the form of a data frame, and the tidyverse makes it easy to extract several summary statistics at once. For instance, for the euc/oak study, we can create variables of the mean and maximum runoff, the mean and standard deviation of rainfall, for each of the sites. This table alone provides a useful output, but we can also use it in further analyses.
+
+```{r message=F}
+eucoakrainfallrunoffTDR %>%
+  group_by(site) %>%
+  summarize(
+    rain = mean(rain_mm, na.rm = TRUE),
+    rainSD = sd(rain_mm, na.rm = TRUE),
+    runoffL_oak = mean(runoffL_oak, na.rm = TRUE),
+    runoffL_euc = mean(runoffL_euc, na.rm = TRUE),
+    runoffL_oakMax = max(runoffL_oak, na.rm = TRUE),
+    runoffL_eucMax = max(runoffL_euc, na.rm = TRUE),
+  )
+
+```
+
+### Boxplot for visualizing distributions by group
+
+\index{boxplots by group}We've looked at this already in the visualization chapter, but a Tukey boxplot is a good way to visualize distributions by group. In this soil CO~2~ study of the Marble Mountains [@marblesCO2] (Figure \@ref(fig:statTukey)), some sites had much greater variance, and some sites tended to be low vs high (Figure \@ref(fig:statCO2avgbysite)).
+
+```{r statTukey, message=F, warning=F, fig.cap="Tukey boxplot by group"}
+soilCO2_97$SITE <- factor(soilCO2_97$SITE)
+ggplot(data = soilCO2_97, mapping = aes(x = SITE, y = CO2pct)) +
+  geom_boxplot()
+```
+
+```{r statCO2avgbysite, echo=F, message=F, warning=F, fig.cap="Marble Mountains average soil carbon dioxide per site"}
+library(tmap); library(RColorBrewer); library(sf); library(tidyverse); library(maptiles); library(igisci); library(stringr)
+CO2avg <- soilCO2_97 %>%
+  group_by(SITE) %>%
+  summarize(avgCO2 = mean(CO2pct,na.rm=T)) %>%
+  mutate(site_id = as.integer(SITE))
+tmap_mode("plot")
+mblCO297_sites <- read_csv(ex("marbles/soilCO2_sites97_gcs.csv")) %>%
+  mutate(site_id = as.integer(str_sub(desc,5,6))) %>%
+  st_as_sf(coords=c("long","lat"), crs=4326) %>%
+  left_join(CO2avg, by = "site_id")
+mblBase <- get_tiles(mblCO297_sites, provider="Esri.WorldImagery")
+mblMap <- tm_shape(mblBase) + tm_rgb() +
+  tm_shape(mblCO297_sites) + 
+  tm_symbols(col="avgCO2", breaks=c(0.2,0.4,0.6,0.8,1,2.5)) +
+  tm_text(col="white", text = "site_id", size=1, auto.placement=T, xmod=0.5, ymod=0.5) +
+  tm_graticules(lines=F)
+mblMap
+```
+
+
+### Generating pseudorandom numbers {#random}
+
+\index{random numbers}\index{pseudorandom numbers}Functions commonly used in R books for quickly creating a lot of numbers to display (often with a histogram \@ref(histogram)) are those that generate pseudorandom numbers. These are also useful in statistical methods that need a lot of these, such as in Monte Carlo simulation. The two most commonly used are:
+
+-   **`runif()`** \index{runif}\index{uniform random}generates a vector of `n` pseudorandom numbers ranging by default from `min=0` to `max=1` (Figure \@ref(fig:statrunif)).
+-   **`rnorm()`** \index{rnorm}\index{normal distribution}generates a vector of `n` normally distributed pseudorandom numbers with a default `mean=0` and `sd=0` (Figures \@ref(fig:statrnorm) and \@ref(fig:statrnormDens)) 
+
+Figure \@ref(fig:statrnomrunif) shows both in action as x and y.
+
+```{r statrunif, fig.cap="Random uniform histogram"}
+x <- as_tibble(runif(n=1000, min=10, max=20))
+names(x) <- 'x'
+ggplot(x, aes(x=x)) + geom_histogram()
+```
+
+```{r statrnorm, fig.cap="Random normal histogram"}
+y <- as_tibble(rnorm(n=1000, mean=100, sd=10))
+names(y) <- 'y'
+ggplot(y, aes(x=y)) + geom_histogram()
+```
+
+```{r statrnormDens, fig.cap="Random normal density plot"}
+ggplot(y, aes(x=y)) + geom_density()
+xy <- bind_cols(x,y)
+```
+
+```{r statrnomrunif, fig.cap="Random normal plotted against random uniform"}
+ggplot(xy, aes(x=x,y=y)) + geom_point()
+```
+
+## Correlation r and Coefficient of Determination r^2^ {#correlation}
+
+\index{correlation}In the visualization chapter, we looked at creating scatter plots and also arrays of scatter plots where we could compare variables to visually see if they might be positively or negatively correlated. A statistic that is commonly used for this is the *Pearson product-moment correlation coefficient* or r statistic.
+
+We'll look at the formula for r below, but it's easier to just use the `cor` function. You just need the two variables as vector inputs in R to return the r statistic. Squaring r to r^2^ is the *coefficient of determination* \index{coefficient of determination}\index{r squared}and can be interpreted as the amount of the variation in the dependent variable y that that is "explained" by variation in the independent variable x. This coefficient will always be positive, with a maximum of 1 or 100%.
+
+If we create two random variables, uniform or normal, there shouldn't be any correlation. We'll do this five times each set:
+
+```{r}
+for (i in 1:5) {print(paste(i, cor(rnorm(100), rnorm(100))))}
+for (i in 1:5) {print(paste(i, cor(runif(100), runif(100))))}
+for (i in 1:5) {print(paste(i, cor(rnorm(100), runif(100))))}
+```
+
+But variables such as temperature and elevation in the Sierra will be strongly negatively correlated, as seen in the scatter plot and the r value close to -1, and have a high r^2^ (Figure \@ref(fig:statNegScatter)).
+
+```{r statNegScatter, fig.cap="Scatter plot illustrating negative correlation"}
+library(igisci); library(tidyverse)
+sierra <- sierraFeb %>% filter(!is.na(TEMPERATURE))
+elev <- sierra$ELEVATION; temp <- sierra$TEMPERATURE
+plot(elev, temp)
+cor(elev, temp)
+cor(elev, temp)^2
+```
+
+\index{cor}While you don't need to use this, since the `cor` function is easier to type, it's interesting to know that the formula for Pearson's correlation coefficient is something that you can actually code in R, taking advantage of its vectorization methods:
+
+$$
+r = \frac{\sum{(x_i-\overline{x})(y_i-\overline{y})}}{\sqrt{\sum{(x_i-\overline{x})^2\sum(y_i-\overline{y})^2}}}
+$$
+
+```{r}
+r <- sum((elev-mean(elev))*(temp-mean(temp)))/
+     sqrt(sum((elev-mean(elev))^2*sum((temp-mean(temp))^2)))
+r
+r^2
+```
+
+Another version of the formula runs faster, so might be what R uses, but you'll never notice the time difference:
+
+$$
+r = \frac{n(\sum{xy})-(\sum{x})(\sum{y})}{\sqrt{(n\sum{x^2}-(\sum{x})^2)(n\sum{y^2}-(\sum{y})^2)}}
+$$
+
+```{r}
+n <- length(elev)
+r <- (n*sum(elev*temp)-sum(elev)*sum(temp))/
+  sqrt((n*sum(elev^2)-sum(elev)^2)*(n*sum(temp^2)-sum(temp)^2))
+r
+r^2
+```
+
+... and as you can see, all three methods give the same results.
+
+### Displaying correlation in a pairs plot
+
+\index{pairs plot}We can use another type of pairs plot from the **psych** package to look at the correlation coefficient in the upper-right part of the pairs plot, since correlation can be determined between x and y or y and x; the result is the same. In contrast to what we'll see in regression models, there doesn't have to be one *explanatory* (or independent) variable and one *response* (or dependent) variable; either one will do. The r value shows both the direction (positive or negative) and the magnitude of the correlation, with values closer to 1 or -1 being more correlated (Figure \@ref(fig:statPairs)).
+
+```{r statPairs, warning=FALSE, fig.cap="Pairs plot with r values"}
+library(psych)
+sierraFeb %>%
+     dplyr::select(ELEVATION:TEMPERATURE) %>%
+     pairs.panels(method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE, # show density plots
+             ellipses = F, smooth = F) # unneeded  
+```
+
+We can clearly see in the graphs the negative relationships between elevation and temperature and between latitude and longitude (what is that telling us?), and these correspond to strongly negative correlation coefficients.
+
+**One problem with Pearson**: While there's nothing wrong with the correlation coefficient, Pearson's name, along with some other pioneers of statistics like Fisher, is tainted by an association with the racist field of *eugenics*. But the mathematics is not to blame, and the correlation coefficient is still as useful as ever. Maybe we can just say that Pearson *discovered* the correlation coefficient...
+
+## Statistical Tests
+
+Tests that compare our data to other data or look at relationships among variables are important statistical methods, and you should refer to statistical references to best understand how to apply the appropriate methods for your research.
+
+### Comparing samples and groupings with a t test and a non-parametric Kruskal-Wallis Rank Sum test
+
+\index{t test}\index{Kruskal-Wallis Rank Sum Test}\index{non-parametric test}A common need in environmental research is to compare samples of a phenomenon (e.g. Figure \@ref(fig:statNDVIpheno)) or compare samples with an assumed standard population. The simplest application of this is the t-test, which can only involve comparing two samples or one sample with a population. After this, we'll look at analysis of variance, extending this to allow for more than two groups. Start by building `XSptsPheno` from code in the Histogram section (\@ref(histogram)) of the Visualization chapter, then proceed: 
+
+```{r include=F}
+XSptsPheno <- XSptsNDVI %>%
+      pivot_longer(cols = starts_with("NDVI"), 
+                   names_to = "phenology", values_to = "NDVI") %>%
+      mutate(phenology = str_sub(phenology, 5, str_length(phenology)))
+```
+
+```{r statNDVIpheno, message=F, warning=F, fig.cap="NDVI by phenology"}
+XSptsPheno %>%
+  ggplot(aes(NDVI, fill=phenology)) +
+  geom_density(alpha=0.2)
+```
+
+```{r eval=F}
+t.test(NDVI~phenology, data=XSptsPheno) 
+```
+\footnotesize
+```{r echo=F}
+t.test(NDVI~phenology, data=XSptsPheno) 
+```
+\normalsize
+
+One condition for using a t test is that our data are \index{normally distributed}normally distributed. While these data sets *appear* reasonably normal, though with a bit of bimodality especially for the senescent group, the \index{Shapiro-Wilk test for normality}Shapiro-Wilk test (which uses a null hypothesis of normal) has a p value \< 0.05 for the senescent group, so the data can't be assumed to be normal.
+
+```{r message=F, warning=F}
+shapiro.test(XSptsPheno$NDVI[XSptsPheno$phenology=="growing"])
+shapiro.test(XSptsPheno$NDVI[XSptsPheno$phenology=="senescent"])
+```
+
+Therefore we should use a non-parametric alternative such as the
+Kruskal-Wallis Rank Sum test:
+
+```{r warning=F, message=F, eval=F}
+kruskal.test(NDVI~phenology, data=XSptsPheno)
+```
+\footnotesize
+```{r warning=F, message=F, echo=F}
+kruskal.test(NDVI~phenology, data=XSptsPheno)
+```
+\normalsize
+
+**A bit of a review on significance tests and p values**
+
+\index{significance tests}\index{p or Pr values}First, each type of test will be testing a particular summary statistic, like the t test is comparing means and the analysis of variance will be comparing variances. In confirmatory statistical tests, you're always seeing if you can reject the null hypothesis that there's no difference, so in the t test or the rank sum test above that compares two samples, it's that there's no difference between two samples.
+
+There will of course nearly always be some difference, so you might think that you'd always reject the \index{null hypothesis}null hypothesis that there's no difference. That's where random error and probability comes in. You can accept a certain amount of error -- say 5% -- to be able to say that the difference in values could have occurred by chance. That 5% or 0.05 is often called the "significance level" and is the probability of the two values being the same that you're willing to accept. (The remainder 0.95 is often called the confidence level, the extent to which you're confident that rejecting the null hypothesis and accepting the working hypothesis is correct.)
+
+When R reports the p (or Pr) probability value, you compare that value to that significance level to see if it's lower, and then use that to possibly reject the null hypothesis and accept the working hypothesis. R will simply report the p value and commonly show asterisks along with it to indicate if it's lower than various common significance levels, like 0.1, 0.05, 0.01, and 0.001.
+
+#### Runoff and Sediment Yield under Eucalyptus vs Oaks -- is there a difference?
+
+Starting with the Data Abstraction chapter, one of the data sets we've been looking at is from a study of \index{runoff analysis}runoff and sediment yield\index{sediment yield analysis} under paired eucalyptus and coast live oak sites, and we might want to analyze these data statistically to consider some basic research questions. These are discussed at greater length in @eucoak, but the key questions are:
+
+- *Is the runoff under eucalyptus canopy significantly different from that under oaks?*
+- *Is the sediment yield under eucalyptus canopy significantly different from that under oaks?*
+
+We'll start with the first, since this was the focus on the first part of the study where multiple variables that influence runoff were measured, such as soil hydrophobicity resulting from the chemical effects of eucalyptus, and any rainfall contrasts at each site and between sites.  For runoff, we'll then start by test for normality of each of the two samples (euc and oak) which shows clearly that both samples are non-normal. 
+
+```{r warning=F, message=F}
+shapiro.test(tidy_eucoak$runoff_L[tidy_eucoak$tree == "euc"])
+shapiro.test(tidy_eucoak$runoff_L[tidy_eucoak$tree == "oak"])
+```
+
+So we might apply the non-parametric Kruskal-Wallis test ...
+
+```{r warning=F, message=F}
+kruskal.test(runoff_L~tree, data=tidy_eucoak)
+```
+
+... and no significant difference can be seen. If we look at the data graphically, this makes sense, since the distributions are not dissimilar (Figure \@ref(fig:statEucOakRunoff)). 
+
+```{r statEucOakRunoff, warning=FALSE, message=F, fig.cap="Runoff under eucalyptus and oak in Bay Area sites"}
+tidy_eucoak %>%
+  ggplot(aes(log(runoff_L),fill=tree)) +
+  geom_density(alpha=0.2)
+```
+
+However, some of this may result from major variations among sites, which is apparent in a site-grouped boxplot (Figure \@ref(fig:statSiteGrouped)). 
+
+```{r statSiteGrouped, message=F, warning=F, fig.cap = "Runoff at various sites contrasting euc and oak"}
+ggplot(data = tidy_eucoak) +
+  geom_boxplot(aes(x=site, y=runoff_L, color=tree))
+
+```
+
+We might restrict our analysis to Tilden Park sites in the East Bay, where there's more of a difference (Figure \@ref(fig:statTildenSites)), but the sample size is very small.
+
+```{r statTildenSites, warning=F, message=F, fig.cap="East Bay sites"}
+tilden <- tidy_eucoak %>% filter(str_detect(tidy_eucoak$site,"TP"))
+tilden %>%
+  ggplot(aes(log(runoff_L),fill=tree)) +
+  geom_density(alpha=0.2)
+
+```
+
+```{r warning=F, message=F}
+shapiro.test(tilden$runoff_L[tilden$tree == "euc"])
+shapiro.test(tilden$runoff_L[tilden$tree == "oak"])
+```
+
+So once again, as is common with small sample sets, we need a non-parametric test.
+
+```{r warning=F, message=F}
+kruskal.test(runoff_L~tree, data=tilden)
+```
+
+**Sediment Yield**
+
+In the year runoff was studied, there were no runoff events sufficient to mobilize sediments. The next year, January had a big event, so we collected sediments and processed them in the lab.
+
+From the basic sediment yield question listed above we can consider two variants:
+
+-   Is there a difference between eucs and oaks in terms of fine sediment yield?
+-   Is there a difference between eucs and oaks in terms of total sediment yield? (includes litter)
+
+So here, we will need to extract fine and total sediment yield from the data and derive group statistics by site (Figure \@ref(fig:statEucOakSediment)). As usual, we'll use a faceted density plot to visualize the distributions (Figure \@ref(fig:statEucOakFacetSediment)). Then we'll run the test.
+
+```{r include=F}
+library(igisci)
+
+```
+
+```{r statEucOakSediment, warning=F, message=F, fig.cap="Eucalyptus and oak sediment runoff box plots"}
+eucoaksed <- read_csv(ex("eucoak/eucoaksediment.csv"))
+summary(eucoaksed)
+eucoaksed %>%
+  group_by(trtype) %>%
+  summarize(meanfines = mean(fines_g, na.rm=T), sdfines = sd(fines_g, na.rm=T),
+            meantotal = mean(total_g, na.rm=T), sdtotal = sd(total_g, na.rm=T))
+eucoakLong <- eucoaksed %>% 
+  pivot_longer(col=c(fines_g,litter_g), 
+               names_to = "sed_type", 
+               values_to = "sed_g")
+eucoakLong %>%
+  ggplot(aes(trtype, sed_g, col=sed_type)) + 
+  geom_boxplot()
+```
+```{r statEucOakFacetSediment, fig.cap="Facet density plot of eucalyptus and oak sediment runoff"}
+eucoakLong %>%
+  ggplot(aes(sed_g, col=sed_type)) + 
+  geom_density() +
+  facet_grid(trtype ~ .)
+```
+
+**Tests of euc vs oak based on fine sediments:**
+```{r eval=F}
+shapiro.test(eucoaksed$fines_g[eucoaksed$trtype == "euc"])
+shapiro.test(eucoaksed$fines_g[eucoaksed$trtype == "oak"])
+t.test(fines_g~trtype, data=eucoaksed) 
+```
+\footnotesize
+```{r echo=F}
+shapiro.test(eucoaksed$fines_g[eucoaksed$trtype == "euc"])
+shapiro.test(eucoaksed$fines_g[eucoaksed$trtype == "oak"])
+t.test(fines_g~trtype, data=eucoaksed)
+```
+\normalsize
+
+**Tests of euc vs oak based on total sediments:**
+```{r eval=F}
+shapiro.test(eucoaksed$total_g[eucoaksed$trtype == "euc"])
+shapiro.test(eucoaksed$total_g[eucoaksed$trtype == "oak"])
+kruskal.test(total_g~trtype, data=eucoaksed) 
+```
+
+\footnotesize
+```{r echo=F}
+shapiro.test(eucoaksed$total_g[eucoaksed$trtype == "euc"])
+shapiro.test(eucoaksed$total_g[eucoaksed$trtype == "oak"])
+kruskal.test(total_g~trtype, data=eucoaksed) 
+```
+\normalsize
+
+So we used a t test for the `fines_g`, and the test suggests that there's a significant difference in sediment yield for fines, but the Kruskal-Wallis test on total sediment (including litter) did not show a significant difference. Both results support the conclusion that oaks in this study produced more soil erosion, largely because the Eucalyptus stands generate so much litter cover, and that litter also made the total sediment yield not significantly different. See @eucoak for more information on this study and its conclusions.
+
+### Analysis of variance
+
+\index{analysis of variance}\index{ANOVA}The purpose of analysis of variance (ANOVA) is to \index{group comparison with ANOVA}compare groups based upon \index{continuous variables}continuous variables. It can be thought of as an extension of a t test where you have more than two groups, or as a linear model where one variable is a factor. In a confirmatory\index{confirmatory statistics} statistical test, you'll want to see if you can reject the null hypothesis that there's no difference between the within-sample variances \index{variances, within-sample}and the \index{variances, between-sample}between-sample variances.
+
+-   The response variable \index{response variable}is a continuous variable
+-   The explanatory variable \index{explanatory variable}is the grouping -- categorical (a factor\index{factor} in R)
+
+From a study of a karst\index{karst} system in Tennessee [@davis1993geomorphology], we might ask the question:
+
+Are water samples from streams draining sandstone, limestone, and shale (Figure \@ref(fig:statSinkingCoveSampling)) different based on solutes\index{solutes} measured as total hardness? 
+
+```{r statSinkingCoveSampling, fig.align = 'center', out.width = "75%", fig.cap = "Water sampling in varying lithologies in a karst area", echo=F}
+knitr::include_graphics(here::here("img", "waterSampling.png"))
+```
+
+```{r include=F}
+library(igisci)
+library(sf); library(tidyverse); library(readxl); library(tmap)
+```
+
+We can look at this spatially (Figure \@ref(fig:statSinkingCoveHardness)) as well as by variables graphically (Figure \@ref(fig:statTHbyLithology)).
+
+```{r statSinkingCoveHardness, fig.cap="Total hardness from dissolved carbonates at water sampling sites in Upper Sinking Cove, TN"}
+wChemData <- read_excel(ex("SinkingCove/SinkingCoveWaterChem.xlsx")) %>%
+  mutate(siteLoc = str_sub(Site,start=1L, end=1L))
+wChemTrunk <- wChemData %>% filter(siteLoc == "T") %>% 
+  mutate(siteType = "trunk")
+wChemDrip <- wChemData %>% filter(siteLoc %in% c("D","S")) %>% 
+  mutate(siteType = "dripwater")
+wChemTrib <- wChemData %>% filter(siteLoc %in% c("B", "F", "K", "W", "P")) %>% 
+  mutate(siteType = "tributary")
+wChemData <- bind_rows(wChemTrunk, wChemDrip, wChemTrib)
+sites <- read_csv(ex("SinkingCove/SinkingCoveSites.csv"))
+wChem <- wChemData %>%
+  left_join(sites, by = c("Site" = "site")) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+library(terra)
+tmap_mode("plot")
+DEM <- rast(ex("SinkingCove/DEM_SinkingCoveUTM.tif"))
+slope <- terrain(DEM, v='slope')
+aspect <- terrain(DEM, v='aspect')
+hillsh <- shade(slope/180*pi, aspect/180*pi, angle=40, direction=330)
+bounds <- st_bbox(wChem)
+xrange <- bounds$xmax - bounds$xmin
+yrange <- bounds$ymax - bounds$ymin
+xMIN <- as.numeric(bounds$xmin - xrange/10)
+xMAX <- as.numeric(bounds$xmax + xrange/10)
+yMIN <- as.numeric(bounds$ymin - yrange/10)
+yMAX <- as.numeric(bounds$ymax + yrange/10)
+newbounds <- st_bbox(c(xmin=xMIN,xmax=xMAX,ymin=yMIN,ymax=yMAX),crs= st_crs(4326))
+tm_shape(hillsh,bbox=newbounds) +
+  tm_raster(palette="-Greys",legend.show=F,n=20, alpha=0.5) + tm_shape(wChem) + 
+  tm_symbols(size="TH", col="Lithology", scale=2, shape="siteType") +
+  tm_legend() +
+  tm_layout(legend.position = c("left", "bottom")) +
+  tm_graticules(lines=F)
+summary(aov(TH~siteType, data = wChemData))
+summary(aov(TH~Lithology, data = wChemData))
+```
+
+```{r statTHbyLithology, fig.cap="Sinking Cove dissolved carbonates as total hardness by lithology"}
+wChemData %>%
+  ggplot(aes(x=TH, fill=siteType)) +
+  geom_histogram() +
+  facet_grid(Lithology ~ .)
+```
+
+Some observations and caveats from the above:
+
+-   There's pretty clearly a difference between surface waters (trunk and tributary) and cave dripwaters (from stalactites) in terms of
+    solutes. Analysis of variance simply confirms the obvious.
+-   There's also pretty clearly a difference among lithologies on the basis of solutes, not surprising since limestone is much more soluble than sandstones. Similarly, analysis of variance confirms the obvious.
+-   The data may not be sufficiently normally distributed, and limestone hardness values are bimodal (largely due to the inaccessibility of waters in the trunk cave passages traveling 2 km through the Bangor limestone [^statistics-1]), though analysis of variance may be less sensitive to this than a t test.
+-   While shale creates springs, shale strata are very thin, with most of them in the "mix" category, or form the boundary between the two major limestone formations. Tributary streams appear to cross the shale in caves that were inaccessible for sampling. We visually confirmed this in one cave, but this exploration required some challenging rappel work to access, so we were not able to sample.
+-   The geologic structure \index{geology} here is essentially flat, with sandstones on the plateau surface and the most massive limestones -- the Bangor and Monteagle limestones -- all below 400 m elevation (Figure \@ref(fig:statSinkingCoveStrat)).
+
+[^statistics-1]: We tried very hard to get into that cave that must extend from upper Cave Cove then under Farmer Cove to a spring in Wolf Cove -- we have dye traces to prove it.
+
+```{r statSinkingCoveStrat, out.width = "90%", fig.cap = "Upper Sinking Cove (Tennessee) stratigraphy", echo=F}
+knitr::include_graphics(here::here("img", "UpperSinkingCoveGeology.png"))
+```
+
+-   While the rapid increase in solutes happens when Cave Cove Creek starts draining through the much more soluble limestone until it reaches saturation, the distance traveled by the water (reflected by a drop in elevation) can be seen (Figure \@ref(fig:statSinkingCoveTHelevLith)).
+
+```{r statSinkingCoveTHelevLith, fig.cap="Sinking Cove dissolved carbonates as TH and elevation by lithology"}
+wChemData %>%
+  ggplot(aes(x=Elevation, y=TH, col=Lithology)) + 
+  geom_point() + 
+  geom_smooth(method= "lm")
+```
+
+### Testing a correlation
+
+\index{correlation test}\index{cor.test}We earlier looked at the correlation coefficient r. One test we can do is to see whether that correlation is significant:
+
+```{r include=F}
+library(igisci)
+```
+
+```{r message=F, warning=F}
+cor.test(sierraFeb$TEMPERATURE, sierraFeb$ELEVATION)
+```
+
+So we can reject the null hypothesis that the correlation is not equal to zero: the probability of getting a correlation of -0.936 is less than $2.2\times 10^{-16}$ and thus the "true correlation is not equal to 0". So we can accept an alternative *working hypothesis* that they're negatively correlated, and that -- no surprise -- *it gets colder as we go to higher elevations*, at least in February in the Sierra, where our data come from.
+
+In the next chapter, we'll use these data to develop a linear model and get a similar result comparing the slope of the model predicting temperature from elevation...
+
+\pagebreak
+## Exercises: Statistics
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+:::{.exercise}
+Build a `soilvegJuly` data frame.
+
+-   Create a new RStudio project named Meadows.
+-   Create a soilveg tibble from "meadows/SoilVegSamples.csv" in the extdata.
+-   Have a look at this data frame and note that there is NA for SoilMoisture and NDVI for 8 of the records. These represent observations made in August, while the rest are all in July. While we have drone imagery and thus NDVI for these sites, as they are during the senescent period we don't want to compare these with the July samples.
+-   Filter the data frame to only include records that are not NA `(!is.na)` for SoilMoisture, and assign that to a new data frame `soilvegJuly`.
+    
+:::
+```{r}
+library(igisci)
+library(tidyverse)
+soilveg <- read_csv(ex("meadows/SoilVegSamples.csv"))
+soilvegJuly <- soilveg %>%
+  filter(!is.na(SoilMoisture))
+soilvegJuly
+```
+
+
+:::{.exercise}
+Visualizations:
+
+-   Create a scatter plot of Soil Moisture vs NDVI, colored by veg (the three-character abbreviation of major vegetation types -- `CAR` for Carex/sedge, `JUN` for Juncus/rush, `GRA` for mesic grasses and forbs, and `UPL` for more elevated (maybe by a meter) areas of sagebrush), for `soilvegJuly`. What we can see is that this is a small sample. This study involved a lot of drone imagery, probably 100s of GB of imagery, which was the main focus of the study -- to detect channels -- but a low density of soil and vegetation ground samples.
+-   Create a histogram of soil moisture colored by veg, also for the July data. We see the same story, with not very many samples, though suggestive of a multimodal distribution overall.
+-   Create a density plot of the same, using alpha = 0.5 to see everything with transparency.
+
+:::
+```{r}
+ggplot(soilvegJuly) + geom_point(aes(x=SoilMoisture, y=NDVI, col=DominantVegetation))
+ggplot(soilvegJuly) + geom_histogram(aes(x=SoilMoisture, fill=DominantVegetation))
+ggplot(soilvegJuly) + geom_density(aes(x=SoilMoisture, fill=DominantVegetation), alpha=0.5)
+```
+
+
+:::{.exercise}
+Tests, July data
+
+Using either `aov()` or `anova(lm())`, run an analysis of variance test of soil moisture \~ veg. Remember to specify the data, which should be just the July data., then do the same test for NDVI \~ veg.
+:::
+
+```{r}
+summary(aov(SoilMoisture~DominantVegetation, data = soilvegJuly))
+summary(aov(NDVI~DominantVegetation, data = soilvegJuly))
+
+```
+
+
+:::{.exercise}
+Meadow differences
+
+-   Now compare the meadows based on soil moisture in July, using a boxplot
+-   Then run an ANOVA test on this meadow grouping
+:::
+
+```{r}
+ggplot(data=soilvegJuly) + geom_boxplot(aes(x=SoilMoisture, col=Meadow))
+summary(aov(SoilMoisture~Meadow, data=soilveg))
+```
+
+
+:::{.exercise}
+For the meadow data, create a pairs plot to find which variables are correlated along with their r values, and test the significance of that correlation and provide percentage of variation of one variable is explained by that of the other.
+:::
+
+```{r}
+library(tidyverse); library(igisci)
+soilveg <- read_csv(ex("meadows/SoilVegSamples.csv"))
+soilvegJuly <- soilveg %>%
+  filter(!is.na(SoilMoisture))
+library(psych)
+soilvegJuly %>%
+     dplyr::select_if(is.numeric) %>%
+     pairs.panels(method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE, # show density plots
+             ellipses = F, smooth = F) # unneeded
+cor.test(soilvegJuly$SoilMoisture, soilvegJuly$NDVI)
+cor(soilvegJuly$SoilMoisture, soilvegJuly$NDVI)^2
+print("Not significant:")
+cor.test(soilvegJuly$BulkDensity, soilvegJuly$NDVI)
+cor.test(soilvegJuly$SoilMoisture, soilvegJuly$BulkDensity)
+```
+
+:::{.exercise}
+Bulk density test, all data
+
+We'll now look at bulk density for all samples (soilveg), including both July and August. Soil moisture and NDVI won't be a part of this analysis, only bulk density and vegetation. Look at the distribution of all bulk density values, using both a histogram with 20 bins and a density plot, then run an ANOVA test of bulk density predicted by (\~) veg. What does the Pr(\>F) value indicate?
+:::
+
+```{r}
+summary(aov(BulkDensity~DominantVegetation, data=soilveg))
+```
+
+:::{.exercise}
+Carex or not?
+
+Derive a bulkDensityCAR data frame by mutating a new variable CAR derived as a boolean result of `veg == "CAR"`. This will group the vegetation points as either Carex or not, then use that in another ANOVA test to predict bulk density. What does the Pr(\>F) value indicate?
+:::
+
+```{r}
+bulkDensityCAR <- soilveg %>% mutate(CAR=veg=="CAR")
+summary(aov(BulkDensity~CAR, data=bulkDensityCAR))
+```
+

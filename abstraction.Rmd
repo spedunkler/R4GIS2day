@@ -1,0 +1,562 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Data Abstraction {#abstraction}
+
+Abstracting data from large data sets (or even small ones) is critical to data science. The most common first step to visualization is abstracting the data in a form that allows for the visualization goal in mind. If you've ever worked with data in spreadsheets, you commonly will be faced with some kind of data manipulation to create meaningful graphs, unless that spreadsheet is specifically designed for it, but then doing something else with the data is going to require some work.
+
+```{r Abstraction, echo=F, fig.cap="Visualization of some abstracted data from the EPA Toxic Release Inventory"}
+library(igisci); library(tidyverse)
+TRI <- read_csv(ex("TRI/TRI_2017_CA.csv")) %>%
+  filter(`5.1_FUGITIVE_AIR` > 1000 & `5.2_STACK_AIR` > 5000)
+ggplot(data=TRI, aes(`5.2_STACK_AIR`,`5.1_FUGITIVE_AIR`,color=INDUSTRY_SECTOR,shape=CARCINOGEN,size=log(`ON-SITE_RELEASE_TOTAL`))) +
+       geom_point() + scale_x_log10() + scale_y_log10() +
+  guides(size="none")
+```
+
+Figure \@ref(fig:Abstraction) started with abstracting some data from EPA's Toxic Release Inventory (TRI) program, which holds data reported from a large number of facilities that must report either "stack" or "fugitive" air. Some of the abstraction had already happened when I used the EPA website to download data for particular years and only in California. But there's more we need to do, and we'll want to use some `dplyr` functions to help with it. 
+
+At this point, we've learned the basics of working with the R language. From here we'll want to explore how to analyze data, statistically, spatially, and temporally. One part of this is abstracting information from existing data sets by selecting variables and observations and summarizing their statistics. 
+
+In the previous chapter, we learned some abstraction methods in base R, such as selecting parts of data frames and applying some functions across the data frame. There's a lot we can do with these methods, and we'll continue to use them, but they can employ some fairly arcane language. There are many packages that extend R's functionality, but some of the most important for data science can be found in the various packages of "The Tidyverse" [@wickham2016r], which has the philosophy of making data manipulation more intuitive.
+
+We'll start with \index{dplyr}**`dplyr`**, which includes an array of data manipulation tools, including **`select`** for selecting variables, **`filter`** for subsetting observations, **`summarize`** for reducing variables to summary statistics, typically stratified by groups, and **`mutate`** for creating new variables from mathematical expressions from existing variables. Some `dplyr` tools such as data joins we'll look at later in the data transformation chapter.
+
+## The Tidyverse {#tidyverse}
+
+The \index{tidyverse}tidyverse refers to a suite of R packages developed at RStudio (see
+<https://rstudio.com> and
+[\<https://r4ds.had.co.nz\>](https://r4ds.had.co.nz){.uri}) for
+facilitating data processing and analysis. While R itself is designed
+around exploratory data analysis, the tidyverse takes it further. Some
+of the packages in the tidyverse that are widely used are:
+
+-   **`dplyr`** : \index{dplyr}data manipulation like a database
+-   **`readr`** : \index{readr}better methods for reading and writing rectangular
+    data
+-   **`tidyr`** : \index{tidyr}reorganization methods that extend dplyr's database
+    capabilities
+-   **`purrr`** : \index{purrr}expanded programming toolkit including enhanced
+    "apply" methods
+-   **`tibble`** : \index{tibble}improved data frame
+-   **`stringr`** : \index{stringr}string manipulation library
+-   **`ggplot2`** : \index{ggplot2}graphing system based on *the grammar of graphics*
+
+In this chapter, we'll be mostly exploring **dplyr**, with a few other
+things thrown in like reading data frames with **readr**. For
+simplicity, we can just include `library(tidyverse)` to get everything.
+
+## Tibbles {#tibbles}
+
+\index{tibble}Tibbles are an improved type of data frame
+
+-   part of the tidyverse
+-   serve the same purpose as a data frame, and all data frame
+    operations work
+
+Advantages
+
+-   display better
+-   can be composed of more complex objects like lists, etc.
+-   can be grouped
+
+There multiple ways to create a tibble:
+
+-   Reading from a CSV using `read_csv()`. *Note the underscore, a
+    function naming convention in the tidyverse.*
+-   Using `tibble()` to either build from vectors or from scratch, or
+    convert from a different type of data frame.
+-   Using `tribble()` to build in code from scratch.
+-   Using various tidyverse functions that return tibbles.
+
+### Building a tibble from vectors
+
+We'll start by looking at a couple of built-in \index{character vectors}character vectors (there are lots of things like this in R): 
+
+- `letters` : lowercase letters
+- `LETTERS` : uppercase letters
+
+```{r _Abstraction_}
+letters
+LETTERS
+```
+
+... then make a tibble of `letters`, `LETTERS`, and two random sets of 26 values, one \index{rnorm}normally distributed, the other \index{runif}uniform:
+
+```{r abstraction.tibble, message=F, warning=F}
+norm <- rnorm(26)
+unif <- runif(26)
+library(tidyverse)
+tibble26 <- tibble(letters,LETTERS,norm,unif)
+tibble26
+```
+> See section \@ref(random) for more on creating random (or rather *pseudo-random*) numbers in R.
+
+### tribble {#tribble}
+
+*As long as you don't let them multiply in your starship*, \index{tribble}tribbles are handy for creating tibbles. (Or rather the `tribble` function is a handy way to create tibbles in code.) You simply create the variable names with a series of entries starting with a tilde, then the data are entered one row at a time. If you line them all up in your code one row at a time, it's easy to enter the data accurately (Table \@ref(tab:tribble)).
+
+```{r tribble}
+peaks <- tribble(
+  ~peak, ~elev, ~longitude, ~latitude,
+  "Mt. Whitney", 4421, -118.2, 36.5,
+  "Mt. Elbert", 4401, -106.4, 39.1,
+  "Mt. Hood", 3428, -121.7, 45.4,
+  "Mt. Rainier", 4392, -121.8, 46.9)
+knitr::kable(peaks, caption = 'Peaks tibble')
+```
+
+### read_csv {#csv}
+
+The \index{read csv}`read_csv` function does somewhat the same thing as `read.csv` in base R, but creates a tibble instead of a data.frame, and has some other properties we'll look at below.\index{igisci package}
+
+>Note that the code below accesses data we'll be using a lot, from EPA Toxic Release Inventory (TRI) data. If you want to keep this data organized in a separate project, you might consider creating a new **`air_quality`** project. This is optional, and you can get by with staying in one project since all of our data will be accessed from the `igisci` package. But in your own work, you will find it useful to create separate projects to keep things organized with your code and data together.
+
+```{r abstraction.readcsv, message=F}
+library(tidyverse); library(igisci)
+TRI87 <- read_csv(ex("TRI/TRI_1987_BaySites.csv"))
+TRI87df <- read.csv(ex("TRI/TRI_1987_BaySites.csv"))
+TRI87b <- tibble(TRI87df)
+identical(TRI87, TRI87b)
+```
+
+Note that they're not identical. *So what's the difference between
+\index{read\_csv}`read_csv` and \index{read.csv}`read.csv`?* Why would we use one over the other? 
+Since their names are so similar, you may accidentally choose one or the other. Some things to consider:
+
+-   To use read_csv, you need to load the `readr` or `tidyverse` library, or use `readr::read_csv`.
+-   The `read.csv` function "fixes" some things and sometimes that might be desired: problematic variable names like `MLY-TAVG-NORMAL` become `MLY.TAVG.NORMAL` -- but this may create problems if those original names are a standard designation.
+-   With `read.csv`, numbers stored as characters are converted to numbers: "01" becomes 1, "02" becomes 2, etc.
+-   There are other known problems that read_csv avoids.
+
+**Recommendation**: Use `read_csv` and `write_csv`.
+
+>You can still just call tibbles "data frames", since they are still data frames, and in this book we'll follow that practice. 
+
+## Summarizing variable distributions
+
+A simple \index{statistical summary}statistical summary is very easy to do in R, and we'll use **`eucoak`** data in the `igisci` package from a study of comparative runoff and erosion under eucalyptus and oak canopies [@eucoak]. In this study, we looked at the amount of runoff and erosion captured in Gerlach troughs on paired eucalyptus and oak sites in the San Francisco Bay Area.
+
+Euc-Oak paired plot runoff and erosion study (@eucoak)
+```{r absEucOakStudy, out.width="75%", fig.align="center", echo=F}
+knitr::include_graphics(here::here("img", "eucoak.png"))
+```
+
+```{r abstraction.summary}
+library(igisci)
+summary(eucoakrainfallrunoffTDR)
+```
+
+In the summary output, how are character variables handled differently from numeric ones?
+
+Remembering what we discussed in the previous chapter, consider the `site` variable (Figure \@ref(fig:absEucOakSites)), and in particular its Length. Looking at the table, what does that length represent?
+
+```{r absEucOakSites, echo=F, message=F, warning=F, fig.cap="Eucalyptus/Oak paired site locations"}
+library(tmap); library(sf); library(tidyverse); library(maptiles); library(igisci); library(stringr)
+sites <- read_csv(system.file("extdata","eucoak/eucoakSites.csv", package="igisci"))
+sitesSF <- st_as_sf(sites, coords = c("long","lat"), crs=4326)
+tmap_mode("plot")
+eucoakBase <- get_tiles(sitesSF, provider="CartoDB.Positron")
+tm_shape(eucoakBase) + tm_rgb() +
+  tm_shape(sitesSF) + 
+  tm_symbols(shape=16, size=0.5) +
+  tm_text(text = "Site", size=1, auto.placement=T, xmod=0.5, ymod=0.5) +
+  tm_graticules(lines=F)
+```
+
+
+
+There are a couple of ways of seeing what \index{unique}unique values exist in a
+character variable like `site` which can be considered a categorical
+variable (factor). Consider what these return:
+
+```{r}
+unique(eucoakrainfallrunoffTDR$site)
+```
+
+```{r}
+factor(eucoakrainfallrunoffTDR$site)
+```
+
+### Stratifying variables by site using a Tukey box plot
+
+A good way to look at variable distributions \index{stratified}stratified by a sample site
+factor is the Tukey box plot (Figure \@ref(fig:absTukeyBoxplot)). We'll be looking more at this and other
+visualization methods in the next chapter.
+
+```{r absTukeyBoxplot, warning=F, fig.cap="Tukey boxplot of runoff under eucalyptus canopy"}
+ggplot(data = eucoakrainfallrunoffTDR) + 
+  geom_boxplot(mapping = aes(x=site, y=runoffL_euc))
+```
+
+## Database operations with `dplyr` {#dplyr}
+
+\index{dplyr}As part of exploring our data, we'll typically simplify or reduce it for
+our purposes. The following methods are quickly discovered to be
+essential as part of exploring and analyzing data.
+
+-   **select rows** using logic, such as `population \> 10000`, with
+    `filter`
+-   **select variable columns** you want to retain with `select`
+-   **add** new variables and assign their values with `mutate`
+-   **sort** rows based on a field with `arrange`
+-   **summarize** by group
+
+### Select, mutate, and the pipe {#pipe}
+
+\index{pipe}\index{\%\>\%}Read the pipe operator **`%>%`** as "and then..." This is bigger than it
+sounds and opens up many possibilities.
+
+See the example below, and observe how the expression becomes several lines
+long. In the process, we'll see examples of new variables with \index{mutate}mutate
+and \index{select}selecting (and in the process *ordering*) variables (Table \@ref(tab:eucoak6table)).
+
+```{r}
+runoff <- eucoakrainfallrunoffTDR %>%
+  mutate(Date = as.Date(date,"%m/%d/%Y"),
+         rain_subcanopy = (rain_oak + rain_euc)/2) %>%
+  dplyr::select(site, Date, rain_mm, rain_subcanopy, 
+         runoffL_oak, runoffL_euc, slope_oak, slope_euc)
+```
+```{r eucoak6table, echo=F}
+library(kableExtra); library(tidyverse)
+if (knitr::is_latex_output()) {
+  knitr::kable(head(runoff), caption = 'EucOak data reorganized a bit, first 6', format="latex") %>% 
+    kable_styling(latex_options="scale_down")} else {
+  knitr::kable(head(runoff), caption = 'EucOak data reorganized a bit, first 6')
+  }
+```
+
+Another way of thinking of the pipe that is very useful is that whatever
+goes before it becomes the first parameter for any functions that
+follow. So in the example above:
+
+1.  The parameter `eucoakrainfallrunoffTDR` becomes the first for
+    `mutate()`, then
+2.  The result of the `mutate()` becomes the first parameter for
+    `dplyr::select()`
+
+> To just rename a variable, use `rename` instead of `mutate`. It will stay in position.
+
+#### Review: creating penguins from penguins_raw
+
+To review some of these methods, it's useful to consider how the penguins data frame was created from the more complex penguins_raw data frame, both of which are part of the \index{palmerpenguins package}palmerpenguins package (@palmer). First let's look at palmerpenguins::penguins_raw:
+
+```{r message=F}
+library(palmerpenguins)
+library(tidyverse)
+library(lubridate)
+summary(penguins_raw)
+```
+
+Now let's create the simpler penguins data frame. We'll use rename for a couple, but most variables require mutation to manipulate strings (we'll get to that later), create factors, or convert to integers. And we'll rename some variables to avoid using backticks (the backward single quotation mark accessed just to the left of the `1` key and below the `Esc` key, and what you can use in markdown to create a monospaced font as I just used for `1` and `Esc`).
+
+```{r message=F}
+penguins <- penguins_raw %>%
+  rename(bill_length_mm = `Culmen Length (mm)`,
+         bill_depth_mm = `Culmen Depth (mm)`) %>%
+  mutate(species = factor(word(Species)),
+         island = factor(Island),
+         flipper_length_mm = as.integer(`Flipper Length (mm)`),
+         body_mass_g = as.integer(`Body Mass (g)`),
+         sex = factor(str_to_lower(Sex)),
+         year = as.integer(year(ymd(`Date Egg`)))) %>%
+  dplyr::select(species, island, bill_length_mm, bill_depth_mm, 
+                flipper_length_mm, body_mass_g, sex, year)
+summary(penguins)
+```
+
+Unfortunately, they don't end up as *exactly* \index{identical}identical, though all of the variables are identical as vectors:
+
+```{r}
+identical(penguins, palmerpenguins::penguins)
+```
+
+
+#### Helper functions for `dplyr::select()`
+
+In the \index{select}`select()` example above, we listed all of the variables, but there are a variety of helper functions for using logic to specify which variables to select. Here are a few:
+
+-   `contains("_")` or any substring of interest in the variable name
+-   `starts_with("runoff")`
+-   `ends_with("euc")`
+-   `num_range("x",1:5)` for the common situation where a series of
+    variable names combine a string and a number
+-   *range* of variables: e.g. `runoffL_oak:slope_euc` could have followed
+    `rain_subcanopy` above
+-   *all but*: preface a variable or a set of variable names with **`-`** to select all others
+
+### filter {#filter}
+
+\index{filter}`filter` lets you select observations that meet criteria, similar to an SQL `WHERE` clause (Table \@ref(tab:absDateFilteredEucOak)).
+
+```{r }
+runoff2007 <- runoff %>%
+  filter(Date >= as.Date("04/01/2007", "%m/%d/%Y"))
+```
+```{r absDateFilteredEucOak, echo=F}
+library(kableExtra); library(tidyverse)
+if (knitr::is_latex_output()) {
+  knitr::kable(head(runoff2007), caption="Date-filtered EucOak data", format="latex") %>% 
+    kable_styling(latex_options="scale_down")} else {
+  knitr::kable(head(runoff2007), caption="Date-filtered EucOak data")}
+```
+
+#### Filtering out `NA` with `!is.na`
+
+\index{is.na}Here's a really important one. There are many times you need to avoid `NA`s. We thus commonly see summary statistics using `na.rm = TRUE` in order to *ignore* `NA`s when calculating a statistic like `mean`.
+
+To simply filter out NAs from a vector or a variable use a filter:
+
+```{r}
+feb_filt <- sierraFeb %>% filter(!is.na(TEMPERATURE))
+```
+
+### Writing a data frame to a csv
+
+\index{write\_csv}Let's say you have created a data frame, maybe with read_csv
+
+`runoff20062007 <- read_csv(ex("eucoak/eucoakrainfallrunoffTDR.csv"))`
+
+Then you do some processing to change it, maybe adding variables, reorganizing, etc., and you want to write out your new `eucoak`, so you just need to use `write_csv`
+
+`write_csv(eucoak, "data/tidy_eucoak.csv")`
+
+>**Note** the use of a data folder `data`: Remember that your default workspace (`wd` for *working directory*) is where your project file resides (check what it is with `getwd()`), so by default you're saving things in that wd. To keep things organized the above code is placing data in a data folder within the wd.
+
+### Summarize by group {#group-summary}
+
+\index{summarize by group}\index{stratify}*You'll find that you need to use this all the time with real data.* Let's say you have a bunch of data where some categorical variable is defining a grouping, like our site field in the `eucoak` data. This is a form of *stratifying* our data\index{stratify}. We'd like to just create average slope, rainfall, and runoff for each site. Note that it involves two steps, first defining which field defines the group, then the various summary statistics we'd like to store. In this case, all of the slopes under `oak` remain the same for a given site -- it's a *site* characteristic -- and the same applies to the `euc` site, so we can just grab the first value (mean would have also worked of course) (Table \@ref(tab:absEucOaksummary)).
+
+```{r, warning=F, message=F}
+eucoakSiteAvg <- runoff %>%
+  group_by(site) %>%
+  summarize(
+    rain = mean(rain_mm, na.rm = TRUE),
+    rain_subcanopy = mean(rain_subcanopy, na.rm = TRUE),
+    runoffL_oak = mean(runoffL_oak, na.rm = TRUE),
+    runoffL_euc = mean(runoffL_euc, na.rm = TRUE),
+    slope_oak = first(slope_oak),
+    slope_euc = first(slope_euc)
+  )
+```
+```{r eval=F, include=F}
+knitr::kable(eucoakSiteAvg, caption="EucOak data summarized by site")
+```
+```{r absEucOaksummary, echo=F}
+library(kableExtra); library(tidyverse)
+if (knitr::is_latex_output()) {
+  knitr::kable(head(eucoakSiteAvg), caption="EucOak data summarized by site", format="latex") %>% 
+    kable_styling(latex_options="scale_down")} else {
+  knitr::kable(head(eucoakSiteAvg), caption="EucOak data summarized by site")}
+```
+
+**Summarizing by group with TRI data**
+```{r abstraction.summaryTRI, message=F, warning=F}
+library(igisci)
+TRI_BySite <- read_csv(ex("TRI/TRI_2017_CA.csv")) %>%
+  mutate(all_air = `5.1_FUGITIVE_AIR` + `5.2_STACK_AIR`) %>%
+  filter(all_air > 0) %>%
+  group_by(FACILITY_NAME) %>%
+  summarize(
+    FACILITY_NAME = first(FACILITY_NAME),
+    air_releases = sum(all_air, na.rm = TRUE),
+    mean_fugitive = mean(`5.1_FUGITIVE_AIR`, na.rm = TRUE), 
+    LATITUDE = first(LATITUDE), LONGITUDE = first(LONGITUDE))
+```
+
+### Count
+
+The \index{count}`count` function is a simple variant on summarizing by group, since the only statistic is the count of events. See https://bookdown.org/igisc/EnvDataSci/ for more on this.
+
+```{r abstraction.count, message=F, warning=F}
+tidy_eucoak %>% count(tree)
+```
+
+### Sorting after summarizing
+
+\index{arrange}\index{sort}Using the marine debris data from the *Marine Debris Monitoring and Assessment Project* [@marineDebris], we can use `arrange` to sort by latitude, so we can see the beaches from south to north along the Pacific coast.
+
+```{r abstraction.sort, message=F, warning=F}
+shorelineLatLong <- ConcentrationReport %>%
+  group_by(`Shoreline Name`) %>%
+  summarize(
+    latitude = mean((`Latitude Start`+`Latitude End`)/2),
+    longitude = mean((`Longitude Start`+`Longitude End`)/2)
+  ) %>%
+  arrange(latitude)
+shorelineLatLong
+
+```
+
+## String abstraction {#stringr}
+
+\index{string abstraction}Character string manipulation is surprisingly critical to data analysis, and so the \index{stringr}**`stringr`** package was developed to provide a wider array of string processing tools than what is in base R, including functions for detecting matches, subsetting strings, managing lengths, replacing substrings with other text, and joining, splitting, and sorting strings.
+
+We'll look at just a couple of `stringr` functions (there is more coverage in https://bookdown.org/igisc/EnvDataSci ). We'll use a built-in dataset of fruit names: `fruit`.
+
+```{r}
+library(stringr)
+fruit
+```
+
+Then just a couple of simple but very useful stringr functions: (1) subsetting a list of strings to those with a "q" in them
+```{r}
+qfruit <- str_subset(fruit,"q")
+qfruit
+```
+
+and (2) replacing all "q"s with "z"s:
+
+```{r}
+str_replace(qfruit,"q","z")
+```
+
+ There are also base R methods that work well, for instance `paste` and `paste0` that concatenate strings (similar to stringr's `str_c`), either with a space padding (`paste`) or not (`paste0`).
+
+```{r}
+phrase <- paste("for","whom","the","bell","tolls")
+phrase
+drive <- "C:/"
+folder <- "data"
+paste0(drive,folder)
+```
+
+The `stringr` package also has a `str_split` function that can separate a longer string using a specified split character. This is often useful:
+```{r}
+str_split(phrase," ")
+```
+
+
+Example of `str_c` use to modify a variable needed for a join:
+
+```{r}
+library(tidyverse)
+csvPath <- system.file("extdata","CA/CA_MdInc.csv",package="igisci")
+CA_MdInc <- read_csv(csvPath)
+join_id <- paste0("0",CA_MdInc$NAME)
+# could also use str_pad(CA_MdInc$NAME,1,side="left",pad="0")
+head(CA_MdInc)
+head(join_id)
+```
+
+There's a lot more to string operations.  See the cheat sheet at: <https://www.rstudio.com/resources/cheatsheets/>.
+
+## Calling functions explicitly with `::` {#explicit}
+
+\index{explicit function calls}Sometimes you need to specify the package and function name this way, for instance, if more than one package has a function of the same name. You can also use this method to call a function without having loaded its library. Due to multiple packages having certain common names (like `select`), it's common to use this syntax, and you'll find that we'll use `dplyr::select(...)` throughout this book.
+
+\pagebreak
+## Exercises: Data Abstraction
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+
+:::{.exercise}
+Create a tibble with 20 rows of two variables `norm` and `unif` with `norm` created with `rnorm()` and `unif` created with `runif()`.
+
+```{r}
+library(tidyverse)
+norm <- rnorm(20)
+unif <- runif(20)
+mytibble <- tibble(norm,unif)
+mytibble
+```
+
+:::
+
+:::{.exercise}
+Read in "TRI/TRI_2017_CA.csv" in two ways, as a normal data frame assigned to df and as a tibble assigned to tbl. What field names result for what's listed in the CSV as `5.1_FUGITIVE_AIR`?
+
+```{r, show_col_types=F}
+library(tidyverse)
+csvPath <- system.file("extdata","TRI/TRI_2017_CA.csv", package="igisci")
+df <- read.csv(csvPath)
+tbl <- read_csv(csvPath)
+dfnames <- names(df)
+tbnames <- names(tbl)
+
+paste("data frame:", dfnames[str_which(dfnames, "FUGITIVE")])
+paste("tibble:", tbnames[str_which(tbnames, "FUGITIVE")])
+```
+:::
+
+:::{.exercise}
+Use the summary function to investigate the variables in either the data.frame or tibble you just created. What type of field and what values are assigned to `BIA_CODE`?
+
+```{r}
+summary(df)
+identical(df$BIA_CODE, tbl$BIA_CODE)
+BIA_CODE <- df$BIA_CODE
+str(BIA_CODE)
+summary(BIA_CODE)
+BIA_CODE[!is.na(BIA_CODE)]
+```
+:::
+
+:::{.exercise}
+Create a boxplot of `body_mass_g` by `species` from the `penguins` data frame in the palmerpenguins package [@palmer].
+
+```{r}
+library(tidyverse)
+library(palmerpenguins)
+```
+
+```{r}
+ggplot(penguins, aes(x=species, y=body_mass_g)) + geom_boxplot()
+```
+:::
+
+:::{.exercise}
+Use select, mutate, and the pipe to create a `penguinMass` tibble where the only original variable retained is `species`, but with `body_mass_kg` created as $\frac{1}{1000}$ the `body_mass_g`. The statement should start with `penguinMass <- penguins` and use a pipe plus the other functions after that.
+
+```{r abstraction.ex5}
+penguinMass <- penguins %>%
+  mutate(body_mass_kg = body_mass_g / 1000) %>%
+  dplyr::select(species, body_mass_kg)
+penguinMass
+```
+:::
+
+:::{.exercise}
+Now, also with `penguins`, create `FemaleChinstaps` to include only the female Chinstrap penguins. Start with `FemaleChinstraps <- penguins %>%`
+
+```{r abstraction.ex6}
+FemaleChinstraps <- penguins %>%
+  filter(sex == "female") %>%
+  filter(species == "Chinstrap")
+FemaleChinstraps
+```
+:::
+
+:::{.exercise}
+Now, summarize by `species` groups to create mean and standard deviation variables from `bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, and `body_mass_g`. Preface the variable names with either `avg.` or `sd.` Include `na.rm=T` with all statistics function calls.
+
+```{r abstraction.ex7}
+library(palmerpenguins); library(tidyverse)
+penguins %>%
+  group_by(species, sex) %>%
+  summarize(avg.bill_length_mm = mean(bill_length_mm, na.rm=T),
+            avg.bill_depth_mm = mean(bill_depth_mm, na.rm=T),
+            avg.flipper_length_mm = mean(flipper_length_mm, na.rm=T),
+            avg.body_mass_g = mean(body_mass_g, na.rm=T),
+            sd.bill_length_mm = sd(bill_length_mm, na.rm=T),
+            sd.bill_depth_mm = sd(bill_depth_mm, na.rm=T),
+            sd.flipper_length_mm = sd(flipper_length_mm, na.rm=T),
+            sd.body_mass_g = sd(body_mass_g, na.rm=T))
+
+```
+:::
+
+:::{.exercise}
+Sort the penguins by `body_mass_g`.
+
+```{r abstraction.ex8}
+penguins %>%
+  arrange(body_mass_g)
+```
+:::
+
+

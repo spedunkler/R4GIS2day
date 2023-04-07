@@ -1,0 +1,249 @@
+# Seabird Model
+
+In this case study, we'll expand upon a **poisson** family glm applied to seabird counts discussed in the modeling chapter. The Applied California Current Ecosystem Study (ACCESS) https://farallones.noaa.gov/science/access.html supports marine wildlife conservation in northern and central California, including the Greater Farallones off the Golden Gate and San Francisco (@ACCESS, @Studwell2017).
+
+```{r out.width = "75%", echo=F, fig.cap="By Caleb Putnam - Black-footed Albatross, 20 miles offshore of Newport, OR, 16 July 2013, CC BY-SA 2.0, https://commons.wikimedia.org/w/index.php?curid=74693160"}
+knitr::include_graphics(here::here("img", "Black-footed_Albatross,_20_miles_offshore_of_Newport,_OR,_16_July_2013_(9322588606).jpg"))
+```
+
+```{r message=F, results='hide'}
+library(igisci); library(sf); library(tidyverse); library(tmap)
+library(maptiles); library(readxl); library(DT)
+Sanctuaries <- st_read(ex("SFmarine/Sanctuaries.shp"))
+transectsXLS <- read_xls(ex("SFmarine/TransectsData.xls"))
+transects <- st_transform(st_as_sf(transectsXLS, coords=c("midlon","midlat"), crs=4326), crs=st_crs(Sanctuaries))
+cordell_bank <- st_read(ex("SFmarine/cordell_bank.shp"))
+isobath_200 <- st_read(ex("SFmarine/isobath_200.shp"))
+mainland <- st_read(ex("SFmarine/mainland.shp"))
+sefi <- st_read(ex("SFmarine/sefi.shp"))
+```
+
+The transects data have 45 variables including:
+
+- date and time variables
+- seawater measurements of temperature, salinity and fluorescence
+- ocean climate indices
+- distance to land, islands, the 200m isobath, and Cordell Bank
+- depth
+- oceanic/atmospheric conditions (sea state, visibility, beaufort index, cloudiness, upwelling)
+- counts of seabirds: 
+  - black-footed albatross (bfal)
+  - northern fulmar (nofu)
+  - pink-footed shearwater (pfsh)
+  - red phalarope (reph)
+  - red-necked phalarope (rnph)
+  - sooty shearwater (sosh)
+
+More specifics are in the metadata:
+
+```{r message=F}
+transects_metadata <- read_excel(ex("SFmarine/Transects_Metadata.xls"))
+DT::datatable(transects_metadata[1,1])
+DT::datatable(read_excel(ex("SFmarine/Transects_Metadata.xls"),skip=3))
+```
+
+## Goals and basic methods of the analysis
+
+Our general goal, inspired by @Studwell2017, is to look at what variables influence the counts of specific seabirds and develop predictive models and maps illustrating optimal conditions for those seabirds based on the model.  We're expecting that some of the various measurements and conditions could be good predictors, though recognizing that no model is perfect and there are going to be many other factors we can't account for.
+
+Our basic method will include:
+
+- Gathering data collected on the cruises as well as GIS and model-derived measurements (e.g. depth, distance, climate models).  *This has been done and all variables we'll use are included in the transects shapefile.*
+- Explore the data using maps, graphs and tables, filtering for a time frame and complete data.
+- Select a species, timeframe, and selection of explanatory variables.
+- Use `glm` to model the species counts responding to the explanatory variables, using the poisson family.
+- Map the results.
+
+## Exploratory data analysis
+
+We'll start by looking at a summary of the bird counts, stored as a series of variables from `bfal` (black-footed albatross) to `sosh` (sooty shearwater):
+
+```{r message=F}
+transectBirdcounts <- transects %>%
+  dplyr::select(bfal:sosh)
+summary(transectBirdcounts)
+```
+
+We'll use the July data from multiple years (in the modeling chapter we just looked at July 2006) to visualize the spatial patterns of black-footed albatross, which we can see from the above has the lowest counts, displayed in both color and size in order to better see the larger counts. We'll make similar maps of measurements of temperature, salinity and fluorescence from the transect cruises. Note that records with values of zero for any of these three measures are excluded, since these represent non-measurements.
+
+
+```{r message=F, warning=F, fig.cap="July black footed albatross, temperature, salinity, fluoresence"}
+tmap_mode("plot")
+oceanBase <- get_tiles(transects, provider="Esri.OceanBasemap")
+transJul0F <- transects %>% filter(month==7 & avg_tem>0 & avg_sal>0)
+Jul_bfal0F <- tm_shape(oceanBase) + tm_rgb() +
+  tm_shape(transJul0F) + tm_symbols(col="bfal", size="bfal")
+Jul_tem <- tm_shape(oceanBase) + tm_rgb() +
+  tm_shape(transJul0F) + tm_dots(col="avg_tem", size="avg_tem")
+Jul_sal <- tm_shape(oceanBase) + tm_rgb() +
+  tm_shape(transJul0F) + tm_dots(col="avg_sal", size="avg_sal")
+Jul_fluo <- tm_shape(oceanBase) + tm_rgb() +
+  tm_shape(transJul0F) + tm_dots(col="avg_fluo", size="avg_fluo")
+tmap_arrange(Jul_bfal0F, Jul_tem, Jul_sal, Jul_fluo)
+
+```
+### Identifying the appropriate model using variance and mean comparisons
+
+```{r}
+mean(transJul0F$bfal)
+var(transJul0F$bfal)
+
+```
+
+
+## Model black-footed albatross counts for July using a poisson-family glm
+
+Prior studies have suggested that temperature, salinity, fluorescence, depth and various distances might be good explanatory variables to use to look at spatial patterns, so we'll use these in the model. (Variables such as climate and oceanic conditions such as upwelling might be used in a temporal analysis, but are constant for this July analysis where we're modeling variables with spatial patterns.)
+
+```{r}
+summary(glm(bfal~avg_tem+avg_sal+avg_fluo+avg_dep+dist_land+dist_isla+dist_200m+dist_cord+year, data=transJul0F,family=poisson))
+```
+
+We can see in the model coefficients table several predictive variables that appear to be significant:
+
+- avg_sal
+- avg_fluo
+- avg_dep
+- dist_land
+- dist_200m
+- year
+
+So in the interest of parsimony, we'll remove non-significant variables to create a new model:
+
+```{r}
+bfal_poisson <- glm(bfal~avg_sal+avg_fluo+avg_dep+dist_land+dist_200m+year, data=transJul0F,family=poisson)
+summary(bfal_poisson)
+
+```
+
+So from this we should be able to predict the spatial distribution of counts using the formula for the poisson glm model, which in our case will have 5 explanatory variables avg_sal ($X_1$), avg_fluo ($X_2$), avg_dep ($X_3$), dist_land ($X_4$), dist_200m ($X_5$), and year ($X_6), using the coefficient estimates from the summary above and the prediction formula in the form:
+
+$$z = e^{b_0+b_1X_1+b_2X_2+b_3X_3+b_4X_4+b_5X_5+b_6X_6}$$
+
+### Map the prediction
+
+To create a map of the predicted spatial pattern, we'll need rasters for each of the variables. We'll need to create these in various ways:
+
+- Depth raster from bathymetry data source 
+- Derive distance rasters from the mainland and 200 m isobar features
+- For measurements obtained on the transect cruises like those from the CTD sensor (salinity and temperature), we'll need to interpolate a raster from those points
+
+#### Depth and distance rasters
+
+We have a depth raster at 200-m resolution, but for our purposes and at this scale we only need 1000-m (1-km) resolution. We'll create a 1-km template raster based on a 10 km buffer around data points, and use that to resample the distances and along with mainland and 200-m isobath, derive the distance rasters needed:
+
+```{r message=F, warning=F, results='hide'}
+library(terra)
+bathy <- rast(ex("SFmarine/bd200m_v2i.tif"))
+```
+```{r}
+stu <- st_union(st_buffer(transJul0F, 10000))
+AOI <- vect(stu)
+crs(AOI) <- crs(bathy)
+rasAOI <- rast(AOI, res=1000)
+```
+```{r crash}
+bathy1km <- resample(bathy,rasAOI)
+```
+```{r}
+distland <- distance(rasAOI, vect(mainland))
+names(distland) <- "distLand" 
+distisobath200 <- distance(rasAOI, vect(isobath_200))
+names(distisobath200) <- "dist200mD"
+tm_dep <- tm_shape(bathy1km) + tm_raster(title="depth (m)")
+tm_distland <- tm_shape(distland) + tm_raster(title="Dist to land (m)")
+tm_distisobath200 <- tm_shape(distisobath200) + tm_raster(title="Dist to 200m isobath")
+tmap_arrange(tm_dep, tm_distland, tm_distisobath200)
+```
+
+## Interpolation
+
+We'll use gstat with an inverse distance weighted (IDW) method applying a inverse distance power of 2 for temperature, salinity and fluorescence, for each year `2004:2013`, then average the 10.
+
+```{r results="hide"}
+library(gstat)
+transJulv <- vect(transJul0F)
+d <- data.frame(geom(transJulv)[,c("x", "y")], as.data.frame(transJulv))
+   # d is a data.frame with x and y variables from the geom
+# Temperature
+for (year in 2004:2013) {
+  gs <- gstat(formula=avg_tem~1, locations=~x+y, data=d, set=list(idp=2))
+  temRas <- interpolate(rasAOI, gs)$var1.pred
+  if (year == 2004) temSum <- temRas
+  if (year > 2004) temSum <- temSum + temRas
+}
+temMean <- temSum/10; fillval <- global(temMean, "mean")[,1]
+tem <- focal(temMean,9, "mean", fillvalue=fillval) 
+names(tem) <- "temperature"
+# Salinity
+for (year in 2004:2013) {
+  gs <- gstat(formula=avg_sal~1, locations=~x+y, data=d, set=list(idp=2))
+  salRas <- interpolate(rasAOI, gs)$var1.pred
+  if (year == 2004) salSum <- salRas
+  if (year > 2004) salSum <- salSum + salRas
+  #print(paste(paste(year, "salSum", global(salSum, "max")[,1])))
+}
+salMean <- salSum/10; fillval <- global(salMean, "mean")[,1]
+sal <- focal(salMean,9, "mean", fillvalue=fillval) # generalizes the IDW to reduce sample point artifacts
+names(sal) <- "salinity"
+# Fluorescence
+for (year in 2004:2013) {
+  gs <- gstat(formula=avg_fluo~1, locations=~x+y, data=d, set=list(idp=2))
+  fluoRas <- interpolate(rasAOI, gs)$var1.pred
+  if (year == 2004) fluoSum <- fluoRas
+  if (year > 2004) fluoSum <- fluoSum + fluoRas
+}
+fluoMean <- fluoSum/10; fillval <- global(fluoMean, "mean")[,1]
+fluo <- focal(fluoMean,9, "mean", fillvalue=fillval) # generalizes the IDW to reduce sample point artifacts
+names(fluo) <- "fluorescence"
+
+```
+
+
+```{r fig.cap="Interpolated depth, salinity and fluorescence, mean of July samples in years 2004:2011", warning=F, message=F}
+tm_tem <- tm_shape(tem) + tm_raster(title="temperature")
+tm_sal <- tm_shape(sal) + tm_raster(title="salinity")
+tm_fluo <- tm_shape(fluo) + tm_raster(title="fluorescence")
+tmap_arrange(tm_dep, tm_tem, tm_sal, tm_fluo)
+
+```
+
+Reviewing the results of the glm...
+
+```{r echo=F}
+summary(bfal_poisson)
+```
+... we can set up and apply the prediction formula to these rasters, using year 2006. 
+
+```{r fig.cap="Black-footed albatross prediction, July 2006", warning=F, message=F}
+b <- coefficients(bfal_poisson)
+bfalpred <- exp(b[1] + b[2]*sal + b[3]*fluo + b[4]*bathy1km + b[5]*distland + b[6]*distisobath200 + b[7]*2006)
+names(bfalpred) = "bfal_predict"
+plot(bfalpred)
+lines(vect(isobath_200), add=T, col="blue")
+contour(bathy1km, add=T)
+```
+
+It appears that a prominent influence on the resulting spatial pattern is distance to the 200-m isobath, with details provided by the other explanatory variables. Given that the year is a constant in the spatial domain, the pattern on the prediction map does not vary, but the range of counts predicted varies, and we can predict the maximum value with:
+
+```{r}
+cat("Maximum black-footed albatross model count predictions, 2004:2013\n")
+for (i in 2004:2013) {
+  maxprd <- global(exp(b[1] + b[2]*salRas + b[3]*fluoRas + b[4]*bathy1km + b[5]*distland + b[6]*distisobath200 + b[7]*i),max)
+  cat(as.character(i), " ", as.character(format(maxprd, digits=3)), "\n")
+}
+
+```
+
+
+```{r eval=F, include=F}
+# This illustrates the major contribution of dist_200m 
+tm_shape(oceanBase) + tm_rgb() +
+  tm_shape(bfalpred) + tm_raster(alpha=0.6) +
+  tm_shape(Sanctuaries) + tm_borders() +
+  tm_shape(isobath_200) + tm_lines(col="blue") +
+  tm_layout(legend.position=c("left","bottom"))
+```
+
+
+

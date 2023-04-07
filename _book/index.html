@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Introduction to R for GIS</title>
+  <meta name="description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  <meta name="generator" content="bookdown 0.28 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="Introduction to R for GIS" />
+  <meta property="og:type" content="book" />
+  
+  <meta property="og:description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  <meta name="github-repo" content="iGISc/EnvDataSci" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Introduction to R for GIS" />
+  
+  <meta name="twitter:description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  
+
+<meta name="author" content="Jerry Davis, SFSU Institute for Geographic Information Science" />
+
+
+<meta name="date" content="2023-04-06" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+
+<link rel="next" href="introduction.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+<script src="libs/htmlwidgets-1.5.4/htmlwidgets.js"></script>
+<link href="libs/datatables-css-0.0.0/datatables-crosstalk.css" rel="stylesheet" />
+<script src="libs/datatables-binding-0.27/datatables.js"></script>
+<link href="libs/dt-core-1.12.1/css/jquery.dataTables.min.css" rel="stylesheet" />
+<link href="libs/dt-core-1.12.1/css/jquery.dataTables.extra.css" rel="stylesheet" />
+<script src="libs/dt-core-1.12.1/js/jquery.dataTables.min.js"></script>
+<link href="libs/crosstalk-1.2.0/css/crosstalk.min.css" rel="stylesheet" />
+<script src="libs/crosstalk-1.2.0/js/crosstalk.min.js"></script>
+<link href="libs/leaflet-1.3.1/leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-1.3.1/leaflet.js"></script>
+<link href="libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet" />
+<script src="libs/proj4-2.6.2/proj4.min.js"></script>
+<script src="libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+<link href="libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-binding-2.1.1/leaflet.js"></script>
+<script src="libs/leaflet-providers-1.9.0/leaflet-providers_1.9.0.js"></script>
+<script src="libs/leaflet-providers-plugin-2.1.1/leaflet-providers-plugin.js"></script>
+<link href="libs/HomeButton-0.0.1/home-button.css" rel="stylesheet" />
+<script src="libs/HomeButton-0.0.1/home-button.js"></script>
+<script src="libs/HomeButton-0.0.1/easy-button-src.min.js"></script>
+<script src="libs/clipboard-0.0.1/setClipboardText.js"></script>
+<link href="libs/mapviewCSS-0.0.1/mapview-popup.css" rel="stylesheet" />
+<link href="libs/mapviewCSS-0.0.1/mapview.css" rel="stylesheet" />
+
+
+<style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><img src="img/R4GIS_296.png"></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Background, Goals and Data</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#r-gisc-and-goals-for-this-book"><i class="fa fa-check"></i><b>1.1</b> R, GISc, and Goals for this book</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#exploratory-data-analysis"><i class="fa fa-check"></i><b>1.2</b> Exploratory Data Analysis</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#software-and-data"><i class="fa fa-check"></i><b>1.3</b> Software and Data</a>
+<ul>
+<li class="chapter" data-level="1.3.1" data-path="index.html"><a href="index.html#data"><i class="fa fa-check"></i><b>1.3.1</b> Data</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="introduction.html"><a href="introduction.html"><i class="fa fa-check"></i><b>2</b> Introduction to R</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="introduction.html"><a href="introduction.html#data-objects"><i class="fa fa-check"></i><b>2.1</b> Data Objects</a>
+<ul>
+<li class="chapter" data-level="2.1.1" data-path="introduction.html"><a href="introduction.html#scalars-and-assignment"><i class="fa fa-check"></i><b>2.1.1</b> Scalars and assignment</a></li>
+</ul></li>
+<li class="chapter" data-level="2.2" data-path="introduction.html"><a href="introduction.html#functions"><i class="fa fa-check"></i><b>2.2</b> Functions</a></li>
+<li class="chapter" data-level="2.3" data-path="introduction.html"><a href="introduction.html#expressions"><i class="fa fa-check"></i><b>2.3</b> Expressions and Statements</a></li>
+<li class="chapter" data-level="2.4" data-path="introduction.html"><a href="introduction.html#class"><i class="fa fa-check"></i><b>2.4</b> Data Classes</a>
+<ul>
+<li class="chapter" data-level="2.4.1" data-path="introduction.html"><a href="introduction.html#integers"><i class="fa fa-check"></i><b>2.4.1</b> Integers</a></li>
+</ul></li>
+<li class="chapter" data-level="2.5" data-path="introduction.html"><a href="introduction.html#rectangular-data"><i class="fa fa-check"></i><b>2.5</b> Rectangular Data</a></li>
+<li class="chapter" data-level="2.6" data-path="introduction.html"><a href="introduction.html#data-structures-in-r"><i class="fa fa-check"></i><b>2.6</b> Data Structures in R</a>
+<ul>
+<li class="chapter" data-level="2.6.1" data-path="introduction.html"><a href="introduction.html#vector"><i class="fa fa-check"></i><b>2.6.1</b> Vectors</a></li>
+<li class="chapter" data-level="2.6.2" data-path="introduction.html"><a href="introduction.html#list"><i class="fa fa-check"></i><b>2.6.2</b> Lists</a></li>
+<li class="chapter" data-level="2.6.3" data-path="introduction.html"><a href="introduction.html#matrix"><i class="fa fa-check"></i><b>2.6.3</b> Matrices</a></li>
+<li class="chapter" data-level="2.6.4" data-path="introduction.html"><a href="introduction.html#dataframes"><i class="fa fa-check"></i><b>2.6.4</b> Data frames</a></li>
+<li class="chapter" data-level="2.6.5" data-path="introduction.html"><a href="introduction.html#factors"><i class="fa fa-check"></i><b>2.6.5</b> Factors</a></li>
+</ul></li>
+<li class="chapter" data-level="2.7" data-path="introduction.html"><a href="introduction.html#accessors"><i class="fa fa-check"></i><b>2.7</b> Accessors and Subsetting</a>
+<ul>
+<li class="chapter" data-level="2.7.1" data-path="introduction.html"><a href="introduction.html#accessing-a-vector-from-a-data-frame"><i class="fa fa-check"></i><b>2.7.1</b> <code>$</code> Accessing a vector from a data frame</a></li>
+</ul></li>
+<li class="chapter" data-level="2.8" data-path="introduction.html"><a href="introduction.html#programming"><i class="fa fa-check"></i><b>2.8</b> Programming scripts in RStudio</a>
+<ul>
+<li class="chapter" data-level="2.8.1" data-path="introduction.html"><a href="introduction.html#apply"><i class="fa fa-check"></i><b>2.8.1</b> Apply functions</a></li>
+</ul></li>
+<li class="chapter" data-level="2.9" data-path="introduction.html"><a href="introduction.html#rstudio"><i class="fa fa-check"></i><b>2.9</b> RStudio projects</a>
+<ul>
+<li class="chapter" data-level="2.9.1" data-path="introduction.html"><a href="introduction.html#rmarkdown"><i class="fa fa-check"></i><b>2.9.1</b> R Markdown</a></li>
+</ul></li>
+<li class="chapter" data-level="2.10" data-path="introduction.html"><a href="introduction.html#exercises-introduction-to-r"><i class="fa fa-check"></i><b>2.10</b> Exercises: Introduction to R</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="abstraction.html"><a href="abstraction.html"><i class="fa fa-check"></i><b>3</b> Data Abstraction</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="abstraction.html"><a href="abstraction.html#tidyverse"><i class="fa fa-check"></i><b>3.1</b> The Tidyverse</a></li>
+<li class="chapter" data-level="3.2" data-path="abstraction.html"><a href="abstraction.html#tibbles"><i class="fa fa-check"></i><b>3.2</b> Tibbles</a>
+<ul>
+<li class="chapter" data-level="3.2.1" data-path="abstraction.html"><a href="abstraction.html#building-a-tibble-from-vectors"><i class="fa fa-check"></i><b>3.2.1</b> Building a tibble from vectors</a></li>
+<li class="chapter" data-level="3.2.2" data-path="abstraction.html"><a href="abstraction.html#tribble"><i class="fa fa-check"></i><b>3.2.2</b> tribble</a></li>
+<li class="chapter" data-level="3.2.3" data-path="abstraction.html"><a href="abstraction.html#csv"><i class="fa fa-check"></i><b>3.2.3</b> read_csv</a></li>
+</ul></li>
+<li class="chapter" data-level="3.3" data-path="abstraction.html"><a href="abstraction.html#summarizing-variable-distributions"><i class="fa fa-check"></i><b>3.3</b> Summarizing variable distributions</a>
+<ul>
+<li class="chapter" data-level="3.3.1" data-path="abstraction.html"><a href="abstraction.html#stratifying-variables-by-site-using-a-tukey-box-plot"><i class="fa fa-check"></i><b>3.3.1</b> Stratifying variables by site using a Tukey box plot</a></li>
+</ul></li>
+<li class="chapter" data-level="3.4" data-path="abstraction.html"><a href="abstraction.html#dplyr"><i class="fa fa-check"></i><b>3.4</b> Database operations with <code>dplyr</code></a>
+<ul>
+<li class="chapter" data-level="3.4.1" data-path="abstraction.html"><a href="abstraction.html#pipe"><i class="fa fa-check"></i><b>3.4.1</b> Select, mutate, and the pipe</a></li>
+<li class="chapter" data-level="3.4.2" data-path="abstraction.html"><a href="abstraction.html#filter"><i class="fa fa-check"></i><b>3.4.2</b> filter</a></li>
+<li class="chapter" data-level="3.4.3" data-path="abstraction.html"><a href="abstraction.html#writing-a-data-frame-to-a-csv"><i class="fa fa-check"></i><b>3.4.3</b> Writing a data frame to a csv</a></li>
+<li class="chapter" data-level="3.4.4" data-path="abstraction.html"><a href="abstraction.html#group-summary"><i class="fa fa-check"></i><b>3.4.4</b> Summarize by group</a></li>
+<li class="chapter" data-level="3.4.5" data-path="abstraction.html"><a href="abstraction.html#count"><i class="fa fa-check"></i><b>3.4.5</b> Count</a></li>
+<li class="chapter" data-level="3.4.6" data-path="abstraction.html"><a href="abstraction.html#sorting-after-summarizing"><i class="fa fa-check"></i><b>3.4.6</b> Sorting after summarizing</a></li>
+</ul></li>
+<li class="chapter" data-level="3.5" data-path="abstraction.html"><a href="abstraction.html#stringr"><i class="fa fa-check"></i><b>3.5</b> String abstraction</a></li>
+<li class="chapter" data-level="3.6" data-path="abstraction.html"><a href="abstraction.html#explicit"><i class="fa fa-check"></i><b>3.6</b> Calling functions explicitly with <code>::</code></a></li>
+<li class="chapter" data-level="3.7" data-path="abstraction.html"><a href="abstraction.html#exercises-data-abstraction"><i class="fa fa-check"></i><b>3.7</b> Exercises: Data Abstraction</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="visualization.html"><a href="visualization.html"><i class="fa fa-check"></i><b>4</b> Visualization</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="visualization.html"><a href="visualization.html#ggplot2"><i class="fa fa-check"></i><b>4.1</b> ggplot2</a></li>
+<li class="chapter" data-level="4.2" data-path="visualization.html"><a href="visualization.html#summary-statistical-graphics"><i class="fa fa-check"></i><b>4.2</b> Summary statistical graphics</a>
+<ul>
+<li class="chapter" data-level="4.2.1" data-path="visualization.html"><a href="visualization.html#plotting-one-variable"><i class="fa fa-check"></i><b>4.2.1</b> Plotting one variable</a></li>
+<li class="chapter" data-level="4.2.2" data-path="visualization.html"><a href="visualization.html#histogram"><i class="fa fa-check"></i><b>4.2.2</b> Histogram</a></li>
+<li class="chapter" data-level="4.2.3" data-path="visualization.html"><a href="visualization.html#other-statistical-graphics"><i class="fa fa-check"></i><b>4.2.3</b> Other statistical graphics</a></li>
+</ul></li>
+<li class="chapter" data-level="4.3" data-path="visualization.html"><a href="visualization.html#plotting-two-variables"><i class="fa fa-check"></i><b>4.3</b> Plotting Two Variables</a>
+<ul>
+<li class="chapter" data-level="4.3.1" data-path="visualization.html"><a href="visualization.html#color-systems"><i class="fa fa-check"></i><b>4.3.1</b> Color systems</a></li>
+</ul></li>
+<li class="chapter" data-level="4.4" data-path="visualization.html"><a href="visualization.html#exercises-visualization"><i class="fa fa-check"></i><b>4.4</b> Exercises: Visualization</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="spatial.html"><a href="spatial.html"><i class="fa fa-check"></i><b>5</b> Spatial Data and Maps</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="spatial.html"><a href="spatial.html#spatial-data"><i class="fa fa-check"></i><b>5.1</b> Spatial Data</a>
+<ul>
+<li class="chapter" data-level="5.1.1" data-path="spatial.html"><a href="spatial.html#simple-geometry-building-in-sf-and-terra"><i class="fa fa-check"></i><b>5.1.1</b> Simple geometry building in sf and terra</a></li>
+<li class="chapter" data-level="5.1.2" data-path="spatial.html"><a href="spatial.html#building-points-from-a-data-frame"><i class="fa fa-check"></i><b>5.1.2</b> Building points from a data frame</a></li>
+<li class="chapter" data-level="5.1.3" data-path="spatial.html"><a href="spatial.html#creating-features-from-shapefiles"><i class="fa fa-check"></i><b>5.1.3</b> Creating features from shapefiles</a></li>
+</ul></li>
+<li class="chapter" data-level="5.2" data-path="spatial.html"><a href="spatial.html#coordinate-referencing-systems"><i class="fa fa-check"></i><b>5.2</b> Coordinate Referencing Systems</a></li>
+<li class="chapter" data-level="5.3" data-path="spatial.html"><a href="spatial.html#creating-sf-data-from-data-frames"><i class="fa fa-check"></i><b>5.3</b> Creating sf Data from Data Frames</a></li>
+<li class="chapter" data-level="5.4" data-path="spatial.html"><a href="spatial.html#building-a-2-state-map-from-geometry"><i class="fa fa-check"></i><b>5.4</b> Building a 2-state map from geometry</a></li>
+<li class="chapter" data-level="5.5" data-path="spatial.html"><a href="spatial.html#using-maptiles-to-create-a-basemap"><i class="fa fa-check"></i><b>5.5</b> Using maptiles to create a basemap</a></li>
+<li class="chapter" data-level="5.6" data-path="spatial.html"><a href="spatial.html#raster-data"><i class="fa fa-check"></i><b>5.6</b> Raster data</a>
+<ul>
+<li class="chapter" data-level="5.6.1" data-path="spatial.html"><a href="spatial.html#building-rasters"><i class="fa fa-check"></i><b>5.6.1</b> Building rasters</a></li>
+<li class="chapter" data-level="5.6.2" data-path="spatial.html"><a href="spatial.html#vector-to-raster-conversion"><i class="fa fa-check"></i><b>5.6.2</b> Vector to raster conversion</a></li>
+</ul></li>
+<li class="chapter" data-level="5.7" data-path="spatial.html"><a href="spatial.html#ggplot2-for-maps"><i class="fa fa-check"></i><b>5.7</b> ggplot2 for Maps</a></li>
+<li class="chapter" data-level="5.8" data-path="spatial.html"><a href="spatial.html#tmap"><i class="fa fa-check"></i><b>5.8</b> tmap</a></li>
+<li class="chapter" data-level="5.9" data-path="spatial.html"><a href="spatial.html#interactive-maps"><i class="fa fa-check"></i><b>5.9</b> Interactive Maps</a>
+<ul>
+<li class="chapter" data-level="5.9.1" data-path="spatial.html"><a href="spatial.html#leaflet"><i class="fa fa-check"></i><b>5.9.1</b> Leaflet</a></li>
+<li class="chapter" data-level="5.9.2" data-path="spatial.html"><a href="spatial.html#tmap-view-mode"><i class="fa fa-check"></i><b>5.9.2</b> tmap (view mode)</a></li>
+<li class="chapter" data-level="5.9.3" data-path="spatial.html"><a href="spatial.html#interactive-mapping-of-individual-penguins-abstracted-from-a-big-dataset"><i class="fa fa-check"></i><b>5.9.3</b> Interactive mapping of individual penguins abstracted from a big dataset</a></li>
+<li class="chapter" data-level="5.9.4" data-path="spatial.html"><a href="spatial.html#exercise-project-preparation"><i class="fa fa-check"></i><b>5.9.4</b> Exercise project preparation</a></li>
+</ul></li>
+<li class="chapter" data-level="5.10" data-path="spatial.html"><a href="spatial.html#exercises-spatial-data-and-maps"><i class="fa fa-check"></i><b>5.10</b> Exercises: Spatial Data and Maps</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Introduction to R for GIS</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="header">
+<h1 class="title">Introduction to R for GIS</h1>
+<p class="author"><em>Jerry Davis, SFSU Institute for Geographic Information Science</em></p>
+<p class="date"><em>2023-04-06</em></p>
+</div>
+<div id="chapter00.chapter_section" class="section level1 intro_section hasAnchor" number="1">
+<h1><span class="header-section-number">Chapter 1</span> Background, Goals and Data<a href="index.html#chapter00.chapter_section" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<div id="r-gisc-and-goals-for-this-book" class="section level2 hasAnchor" number="1.1">
+<h2><span class="header-section-number">1.1</span> R, GISc, and Goals for this book<a href="index.html#r-gisc-and-goals-for-this-book" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>While the R language was originally developed to do statistical analysis, and create graphics in support of a focus on <em>exploratory data analysis</em>, it has been extended in many directions, one of which is geospatial. This course is designed to provide a brief introduction to the R language, especially as enhanced for clarity by methods in the “tidyverse”, continue that philosophical approach into visualization methods, and then look at how to put our data on map.</p>
+<p>This book focuses on methods for a 2-day course introducing R for GIS, and is a subset of a longer <em>Introduction to Environmental Data Science</em> book published by CRC Press, which also gets into additional graphics, statistical modeling, imagery classification, time series, and other R methods. A free online version hosted at bookdown.org: <a href="https://bookdown.org/igisc/EnvDataSci/" class="uri">https://bookdown.org/igisc/EnvDataSci/</a>, which I use for a semester-long course. We obviously won’t be covering that much material, but I’ve provided suggestions of exploring further by referencing that book.</p>
+<p>R turns out to be a very accessible entry into data science. In general, data science can be seen as being the intersection of math and statistics, computer science/IT, and some research domain, and in this case it’s environmental. GISc plays an important part in making this work.</p>
+</div>
+<div id="exploratory-data-analysis" class="section level2 hasAnchor" number="1.2">
+<h2><span class="header-section-number">1.2</span> Exploratory Data Analysis<a href="index.html#exploratory-data-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Just as <em>exploration</em> is a part of what <em>National Geographic</em> has long covered, it’s an important part of geographic and environmental science research. <strong>Exploratory data analysis</strong> is exploration applied to data, and has grown as an alternative approach to traditional statistical analysis. This basic approach perhaps dates back to the work of Thomas Bayes in the eighteenth century, but <span class="citation">Tukey (<a href="#ref-tukey1962" role="doc-biblioref">1962</a>)</span> may have best articulated the basic goals of this approach in defining the “data analysis” methods he was promoting: “Procedures for analyzing data, techniques for interpreting the results of such procedures, ways of planning the gathering of data to make its analysis easier, more precise or more accurate, and all the machinery and results of (mathematical) statistics which apply to analyzing data.” Some years later <span class="citation">Tukey (<a href="#ref-tukey1977" role="doc-biblioref">1977</a>)</span> followed up with <em>Exploratory Data Analysis</em>.</p>
+<p>Exploratory data analysis (EDA) is an approach to analyzing data via summaries and graphics. The key word is <em>exploratory</em>, and while one might view this in contrast to <em>confirmatory</em> statistics, in fact they are highly complementary. The objectives of EDA include (a) suggesting hypotheses; (b) assessing assumptions on which inferences will be based; (c) selecting appropriate statistical tools; and (d) guiding further data collection. This philosophy led to the development of S at Bell Labs (led by John Chambers, 1976), then to R.</p>
+</div>
+<div id="software-and-data" class="section level2 hasAnchor" number="1.3">
+<h2><span class="header-section-number">1.3</span> Software and Data<a href="index.html#software-and-data" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>First, we’re going to use the R language, designed for statistical computing and graphics. It’s not the only way to do data analysis – Python is another important data science language – but R with its statistical foundation is an important language for academic research, especially in the environmental sciences.</p>
+<pre><code>## [1] &quot;This book was produced in RStudio using R version 4.2.3 (2023-03-15 ucrt)&quot;</code></pre>
+<p>For a start, you’ll need to have R and RStudio installed on the computer you’ll be using. If you’re working in our lab, R and RStudio are already installed, and just need to install packages that extend the software, which is very easy to do in R, and everything can be done within RStudio.</p>
+<blockquote>
+<p><em>If and only if you are working on your own computer</em>, I’d recommend doing a clean uninstall of previous versions of R before installing a new version. In Windows, you can find the <code>unins000.exe</code> file in the version folder within <code>C:\Program Files\R</code>. You’ll find a link to install the latest version “for the first time” at CRAN (search “R CRAN”).</p>
+</blockquote>
+<p>In RStudio, you can then install the packages needed. You’ll want to install them when you first need them, which will typically be when you first see a <code>library()</code> call in the code, or possibly when a function is prefaced with the package name, something like <code>dplyr::select()</code>, or maybe when R raises an error that it can’t find a function you’ve called or that the package isn’t installed. One of the earliest we’ll need is the suite of packages in the “tidyverse” (<span class="citation">Wickham and Grolemund (<a href="#ref-wickham2016r" role="doc-biblioref">2016</a>)</span>), which includes some of the ones listed above: <code>ggplot2</code>, <code>dplyr</code>, <code>stringr</code>, and <code>tidyr</code>. You can install these individually, or all at once with:</p>
+<pre><code>`install.packages(&quot;tidyverse&quot;)`</code></pre>
+<p>This is usually done from the console in RStudio and not included in an R script or markdown document, since you don’t want to be installing the package over and over again. You can also respond to a prompt from RStudio when it detects a package called in a script you open that you don’t have installed.</p>
+<p>From time to time, you’ll want to update your installed packages, and that usually happens when something doesn’t work and maybe the dependencies of one package on another gets broken with a change in a package. Fortunately, in the R world, especially at the main repository at CRAN, there’s a lot of effort put into making sure packages work together, so usually there are no surprises if you’re using the most current versions. <em>Note that there can be exceptions to this, and occasionally new package versions will create problems with other packages due to inter-package dependencies and the introduction of functions with names that duplicate other packages. The packages installed for this book were current as of that version of R, but new package versions may occasionally introduce errors.</em></p>
+<p>Once a package like <code>dplyr</code> is installed, you can access all of its functions and data by adding a library call, like …</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="index.html#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span></code></pre></div>
+<p>… which you <em>will</em> want to include in your code, or to provide access to multiple libraries in the tidyverse, you can use <code>library(tidyverse)</code>. Alternatively, if you’re only using maybe one function out of an installed package, you can call that function with the <code>::</code> separator, like <code>dplyr::select()</code>. This method has another advantage in avoiding problems with duplicate names – and for instance we’ll generally call <code>dplyr::select()</code> this way.</p>
+<div id="data" class="section level3 hasAnchor" number="1.3.1">
+<h3><span class="header-section-number">1.3.1</span> Data<a href="index.html#data" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>We’ll be using data from various sources, including data on CRAN like the code packages above which you install the same way – so use <code>install.packages("palmerpenguins")</code>.</p>
+<p>We’ve also created a repository on GitHub that includes data we’ve developed in the Institute for Geographic Information Science (iGISc) at SFSU, and you’ll need to install that package a slightly different way.</p>
+<p><img src="img/IGIScSFSU281200.png" width="33%" style="display: block; margin: auto;" /></p>
+<p>GitHub packages require a bit more work on the user’s part since we need to first install <code>remotes</code><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, then use that to install the GitHub data package:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="index.html#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;remotes&quot;</span>)</span>
+<span id="cb4-2"><a href="index.html#cb4-2" aria-hidden="true" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;iGISc/igisci&quot;</span>)</span></code></pre></div>
+<p>Then you can access it just like other built-in data by including:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="index.html#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(igisci)</span></code></pre></div>
+<p>To see what’s in it, you’ll see the various datasets listed in:</p>
+<pre><code>data(package=&quot;igisci&quot;)</code></pre>
+<p>For instance, Figure <a href="index.html#fig:indexCAcounties">1.1</a> is a map of California counties using the CA_counties <code>sf</code> feature data. We’ll be looking at the <code>sf</code> (Simple Features) package later in the Spatial section of the book, but seeing <code>library(sf)</code>, this is one place where you’d need to have installed another package, with <code>install.packages("sf")</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="index.html#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse); <span class="fu">library</span>(igisci); <span class="fu">library</span>(sf)</span>
+<span id="cb7-2"><a href="index.html#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>CA_counties) <span class="sc">+</span> <span class="fu">geom_sf</span>()</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:indexCAcounties"></span>
+<img src="R4GIS_files/figure-html/indexCAcounties-1.png" alt="California counties simple features data in igisci package" width="75%" />
+<p class="caption">
+FIGURE 1.1: California counties simple features data in igisci package
+</p>
+</div>
+<p>The package datasets can be used directly as <code>sf</code> data or data frames. And similarly to functions, you can access the (previously installed) data set by prefacing with <code>igisci::</code> this way, without having to load the library. This might be useful in a one-off operation:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="index.html#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(igisci<span class="sc">::</span>sierraFeb<span class="sc">$</span>LATITUDE)</span></code></pre></div>
+<pre><code>## [1] 38.3192</code></pre>
+<p>Raw data such as <code>.csv</code> files can also be read from the <code>extdata</code> folder that is installed on your computer when you install the package, using code such as:</p>
+<pre><code>csvPath &lt;- system.file(&quot;extdata&quot;,&quot;TRI/TRI_1987_BaySites.csv&quot;, package=&quot;igisci&quot;)
+TRI87 &lt;- read_csv(csvPath)</code></pre>
+<p>or something similar for shapefiles, such as:</p>
+<pre><code>shpPath &lt;- system.file(&quot;extdata&quot;,&quot;marbles/trails.shp&quot;, package=&quot;igisci&quot;)
+trails &lt;- st_read(shpPath)</code></pre>
+<p>And we’ll find that including most of the above arcanity in a function will help. We’ll look at functions later, but here’s a function that we’ll use a lot for setting up reading data from the extdata folder:</p>
+<pre><code>ex &lt;- function(dta){system.file(&quot;extdata&quot;,dta,package=&quot;igisci&quot;)}</code></pre>
+<p>And this <code>ex()</code>function is needed so often that it’s installed in the <code>igisci</code> package, so if you have <code>library(igisci)</code> in effect, you can just use it like this:</p>
+<pre><code>trails &lt;- st_read(ex(&quot;marbles/trails.shp&quot;))</code></pre>
+<p>But how do we see what’s in the <code>extdata</code> folder? We can’t use the <code>data()</code> function, so we would have to dig for the folder where the igisci package gets installed, which is buried pretty deeply in your user profile. So I wrote another function <code>exfiles()</code> that creates a data frame showing all of the files and the paths to use. In RStudio you could access it with <code>View(exfiles())</code> or we could use a datatable (you’ll need to have installed “DT”). You can use the path using the <code>ex()</code> function with any function that needs it to read data, like <code>read.csv(ex('CA/CA_ClimateNormals.csv'))</code>, or just enter that <code>ex()</code> call in the console like <code>ex('CA/CA_ClimateNormals.csv')</code> to display where on your computer the installed data reside.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="index.html#cb14-1" aria-hidden="true" tabindex="-1"></a>DT<span class="sc">::</span><span class="fu">datatable</span>(<span class="fu">exfiles</span>(), <span class="at">options=</span><span class="fu">list</span>(<span class="at">scrollX=</span>T), <span class="at">rownames=</span>F)</span></code></pre></div>
+<div id="htmlwidget-a0ad688875c572278740" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-a0ad688875c572278740">{"x":{"filter":"none","vertical":false,"data":[["airquality","airquality","BayArea","BayArea","BayArea","CA","CA","CA","CA","CA","CA","CA","CA","CA","eucoak","eucoak","eucoak","eucoak","eucoak","eucoak","eucoak","fish","litter","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","meadows","meadows","meadows","meadows","Nile","penguins","RCVimagery","RCVimagery","RCVimagery","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","sierra","sierra","sierra","sierra","sierra","sierra","sierra","sierra","sierra","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","streams","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","ts","ts","US","US"],["CES4 Final Shapefile.shp","Pollution by type US 1970 to 2016.xlsx","BayAreaCounties.shp","BayAreaTracts.shp","BayArea_hillsh.tif","CA_counties.shp","CAfreeways.shp","ca_elev.tif","ca_elev_WGS84.tif","ca_hillsh_WGS84.tif","CA_ClimateNormals.csv","CA_MdInc.csv","CA_MdInc_Tr_2016.csv","CDC_health_data_by_Tract_CA_2018_release.csv","eucoak_sites.csv","eucoakrainfallrunoffTDR.csv","eucoaksediment.csv","eucoakSites.csv","eucoakSites.csv.xml","REMOVEeucoak_sites.csv","tidy_eucoak.csv","fishdata.csv","ConcentrationReport.csv","co2july95.shp","geology.shp","gps97.shp","samples.shp","streams.shp","trails.shp","elev.tif","bulkdens970901.csv","resurgenceData.csv","resurgenceDataVariables.csv","soilCO2_97.alldata.csv","soilCO2_97.csv","soilCO2_97_site_descriptions.csv","soilCO2_97_variables.csv","soilCO2_sites97_gcs.csv","resurgenceData.xlsx","soilCO2_97.xlsx","SoilVegSamples.csv","XSptsNDVI.csv","XSptsPheno.csv","LoneyMeadow_30minCO2fluxes_Geog604.xls","NilePoints.csv","sat_table_splash.csv","train_points.shp","train_polys7.shp","train_polys9.shp","roads.shp","slideCentroids.shp","SPCWatershed.shp","streams.shp","trails.shp","dem.tif","SI.tif","SanPedroCreekBacterialCounts.csv","cordell_bank.shp","isobath_200.shp","mainland.shp","Sanctuaries.shp","sefi.shp","transects.shp","bd200m_v2i.tif","Transects_Metadata.xls","TransectsData.xls","CA_places.shp","908277.csv","sagehen_dv.csv","Sierra2LassenData.csv","sierraClimate.csv","sierraData.csv","sierraFeb.csv","sierraFebShort.csv","sierraStations.csv","CaveEntrances.shp","caves.shp","Contour10.shp","geology.shp","DEM_SinkingCoveGCS.tif","DEM_SinkingCoveUTM.tif","SinkingCoveSites.csv","SinkingCoveWaterChem.xlsx","streams.csv","BayAreaCounties.shp","BayAreaTracts.shp","BayArea_hillsh.tif","CA_MdInc.csv","CA_MdInc_Tr_2016.csv","CDC_health_data_by_Tract_CA_2018_release.csv","TRI_1987_BaySites.csv","TRI_1987_CA.csv","TRI_1997_CA.csv","TRI_2007_CA.csv","TRI_2017_CA.csv","LoneyMeadow_30minCO2fluxes_Geog604.xls","SolarRad_Temp.xls","US_states_Simp.shp","USDOE_FuelEfficiency2022.xlsx"],["ex('airquality/CES4 Final Shapefile.shp')","ex('airquality/Pollution by type US 1970 to 2016.xlsx')","ex('BayArea/BayAreaCounties.shp')","ex('BayArea/BayAreaTracts.shp')","ex('BayArea/BayArea_hillsh.tif')","ex('CA/CA_counties.shp')","ex('CA/CAfreeways.shp')","ex('CA/ca_elev.tif')","ex('CA/ca_elev_WGS84.tif')","ex('CA/ca_hillsh_WGS84.tif')","ex('CA/CA_ClimateNormals.csv')","ex('CA/CA_MdInc.csv')","ex('CA/CA_MdInc_Tr_2016.csv')","ex('CA/CDC_health_data_by_Tract_CA_2018_release.csv')","ex('eucoak/eucoak_sites.csv')","ex('eucoak/eucoakrainfallrunoffTDR.csv')","ex('eucoak/eucoaksediment.csv')","ex('eucoak/eucoakSites.csv')","ex('eucoak/eucoakSites.csv.xml')","ex('eucoak/REMOVEeucoak_sites.csv')","ex('eucoak/tidy_eucoak.csv')","ex('fish/fishdata.csv')","ex('litter/ConcentrationReport.csv')","ex('marbles/co2july95.shp')","ex('marbles/geology.shp')","ex('marbles/gps97.shp')","ex('marbles/samples.shp')","ex('marbles/streams.shp')","ex('marbles/trails.shp')","ex('marbles/elev.tif')","ex('marbles/bulkdens970901.csv')","ex('marbles/resurgenceData.csv')","ex('marbles/resurgenceDataVariables.csv')","ex('marbles/soilCO2_97.alldata.csv')","ex('marbles/soilCO2_97.csv')","ex('marbles/soilCO2_97_site_descriptions.csv')","ex('marbles/soilCO2_97_variables.csv')","ex('marbles/soilCO2_sites97_gcs.csv')","ex('marbles/resurgenceData.xlsx')","ex('marbles/soilCO2_97.xlsx')","ex('meadows/SoilVegSamples.csv')","ex('meadows/XSptsNDVI.csv')","ex('meadows/XSptsPheno.csv')","ex('meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls')","ex('Nile/NilePoints.csv')","ex('penguins/sat_table_splash.csv')","ex('RCVimagery/train_points.shp')","ex('RCVimagery/train_polys7.shp')","ex('RCVimagery/train_polys9.shp')","ex('SanPedro/roads.shp')","ex('SanPedro/slideCentroids.shp')","ex('SanPedro/SPCWatershed.shp')","ex('SanPedro/streams.shp')","ex('SanPedro/trails.shp')","ex('SanPedro/dem.tif')","ex('SanPedro/SI.tif')","ex('SanPedro/SanPedroCreekBacterialCounts.csv')","ex('SFmarine/cordell_bank.shp')","ex('SFmarine/isobath_200.shp')","ex('SFmarine/mainland.shp')","ex('SFmarine/Sanctuaries.shp')","ex('SFmarine/sefi.shp')","ex('SFmarine/transects.shp')","ex('SFmarine/bd200m_v2i.tif')","ex('SFmarine/Transects_Metadata.xls')","ex('SFmarine/TransectsData.xls')","ex('sierra/CA_places.shp')","ex('sierra/908277.csv')","ex('sierra/sagehen_dv.csv')","ex('sierra/Sierra2LassenData.csv')","ex('sierra/sierraClimate.csv')","ex('sierra/sierraData.csv')","ex('sierra/sierraFeb.csv')","ex('sierra/sierraFebShort.csv')","ex('sierra/sierraStations.csv')","ex('SinkingCove/CaveEntrances.shp')","ex('SinkingCove/caves.shp')","ex('SinkingCove/Contour10.shp')","ex('SinkingCove/geology.shp')","ex('SinkingCove/DEM_SinkingCoveGCS.tif')","ex('SinkingCove/DEM_SinkingCoveUTM.tif')","ex('SinkingCove/SinkingCoveSites.csv')","ex('SinkingCove/SinkingCoveWaterChem.xlsx')","ex('streams/streams.csv')","ex('TRI/BayAreaCounties.shp')","ex('TRI/BayAreaTracts.shp')","ex('TRI/BayArea_hillsh.tif')","ex('TRI/CA_MdInc.csv')","ex('TRI/CA_MdInc_Tr_2016.csv')","ex('TRI/CDC_health_data_by_Tract_CA_2018_release.csv')","ex('TRI/TRI_1987_BaySites.csv')","ex('TRI/TRI_1987_CA.csv')","ex('TRI/TRI_1997_CA.csv')","ex('TRI/TRI_2007_CA.csv')","ex('TRI/TRI_2017_CA.csv')","ex('ts/LoneyMeadow_30minCO2fluxes_Geog604.xls')","ex('ts/SolarRad_Temp.xls')","ex('US/US_states_Simp.shp')","ex('US/USDOE_FuelEfficiency2022.xlsx')"],["shapefile","xls","shapefile","shapefile","TIFF","shapefile","shapefile","TIFF","TIFF","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","xls","xls","CSV","CSV","CSV","xls","CSV","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","TIFF","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","xls","xls","shapefile","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","shapefile","shapefile","shapefile","shapefile","TIFF","TIFF","CSV","xls","CSV","shapefile","shapefile","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","xls","xls","shapefile","xls"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>dir<\/th>\n      <th>file<\/th>\n      <th>path<\/th>\n      <th>type<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"scrollX":true,"columnDefs":[],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-8490c556728ff9e402b9" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-8490c556728ff9e402b9">{"x":{"filter":"none","vertical":false,"data":[["airquality","airquality","BayArea","BayArea","BayArea","CA","CA","CA","CA","CA","CA","CA","CA","CA","eucoak","eucoak","eucoak","eucoak","eucoak","eucoak","eucoak","fish","litter","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","marbles","meadows","meadows","meadows","meadows","Nile","penguins","RCVimagery","RCVimagery","RCVimagery","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SanPedro","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","SFmarine","sierra","sierra","sierra","sierra","sierra","sierra","sierra","sierra","sierra","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","SinkingCove","streams","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","TRI","ts","ts","US","US"],["CES4 Final Shapefile.shp","Pollution by type US 1970 to 2016.xlsx","BayAreaCounties.shp","BayAreaTracts.shp","BayArea_hillsh.tif","CA_counties.shp","CAfreeways.shp","ca_elev.tif","ca_elev_WGS84.tif","ca_hillsh_WGS84.tif","CA_ClimateNormals.csv","CA_MdInc.csv","CA_MdInc_Tr_2016.csv","CDC_health_data_by_Tract_CA_2018_release.csv","eucoak_sites.csv","eucoakrainfallrunoffTDR.csv","eucoaksediment.csv","eucoakSites.csv","eucoakSites.csv.xml","REMOVEeucoak_sites.csv","tidy_eucoak.csv","fishdata.csv","ConcentrationReport.csv","co2july95.shp","geology.shp","gps97.shp","samples.shp","streams.shp","trails.shp","elev.tif","bulkdens970901.csv","resurgenceData.csv","resurgenceDataVariables.csv","soilCO2_97.alldata.csv","soilCO2_97.csv","soilCO2_97_site_descriptions.csv","soilCO2_97_variables.csv","soilCO2_sites97_gcs.csv","resurgenceData.xlsx","soilCO2_97.xlsx","SoilVegSamples.csv","XSptsNDVI.csv","XSptsPheno.csv","LoneyMeadow_30minCO2fluxes_Geog604.xls","NilePoints.csv","sat_table_splash.csv","train_points.shp","train_polys7.shp","train_polys9.shp","roads.shp","slideCentroids.shp","SPCWatershed.shp","streams.shp","trails.shp","dem.tif","SI.tif","SanPedroCreekBacterialCounts.csv","cordell_bank.shp","isobath_200.shp","mainland.shp","Sanctuaries.shp","sefi.shp","transects.shp","bd200m_v2i.tif","Transects_Metadata.xls","TransectsData.xls","CA_places.shp","908277.csv","sagehen_dv.csv","Sierra2LassenData.csv","sierraClimate.csv","sierraData.csv","sierraFeb.csv","sierraFebShort.csv","sierraStations.csv","CaveEntrances.shp","caves.shp","Contour10.shp","geology.shp","DEM_SinkingCoveGCS.tif","DEM_SinkingCoveUTM.tif","SinkingCoveSites.csv","SinkingCoveWaterChem.xlsx","streams.csv","BayAreaCounties.shp","BayAreaTracts.shp","BayArea_hillsh.tif","CA_MdInc.csv","CA_MdInc_Tr_2016.csv","CDC_health_data_by_Tract_CA_2018_release.csv","TRI_1987_BaySites.csv","TRI_1987_CA.csv","TRI_1997_CA.csv","TRI_2007_CA.csv","TRI_2017_CA.csv","LoneyMeadow_30minCO2fluxes_Geog604.xls","SolarRad_Temp.xls","US_states_Simp.shp","USDOE_FuelEfficiency2022.xlsx"],["ex('airquality/CES4 Final Shapefile.shp')","ex('airquality/Pollution by type US 1970 to 2016.xlsx')","ex('BayArea/BayAreaCounties.shp')","ex('BayArea/BayAreaTracts.shp')","ex('BayArea/BayArea_hillsh.tif')","ex('CA/CA_counties.shp')","ex('CA/CAfreeways.shp')","ex('CA/ca_elev.tif')","ex('CA/ca_elev_WGS84.tif')","ex('CA/ca_hillsh_WGS84.tif')","ex('CA/CA_ClimateNormals.csv')","ex('CA/CA_MdInc.csv')","ex('CA/CA_MdInc_Tr_2016.csv')","ex('CA/CDC_health_data_by_Tract_CA_2018_release.csv')","ex('eucoak/eucoak_sites.csv')","ex('eucoak/eucoakrainfallrunoffTDR.csv')","ex('eucoak/eucoaksediment.csv')","ex('eucoak/eucoakSites.csv')","ex('eucoak/eucoakSites.csv.xml')","ex('eucoak/REMOVEeucoak_sites.csv')","ex('eucoak/tidy_eucoak.csv')","ex('fish/fishdata.csv')","ex('litter/ConcentrationReport.csv')","ex('marbles/co2july95.shp')","ex('marbles/geology.shp')","ex('marbles/gps97.shp')","ex('marbles/samples.shp')","ex('marbles/streams.shp')","ex('marbles/trails.shp')","ex('marbles/elev.tif')","ex('marbles/bulkdens970901.csv')","ex('marbles/resurgenceData.csv')","ex('marbles/resurgenceDataVariables.csv')","ex('marbles/soilCO2_97.alldata.csv')","ex('marbles/soilCO2_97.csv')","ex('marbles/soilCO2_97_site_descriptions.csv')","ex('marbles/soilCO2_97_variables.csv')","ex('marbles/soilCO2_sites97_gcs.csv')","ex('marbles/resurgenceData.xlsx')","ex('marbles/soilCO2_97.xlsx')","ex('meadows/SoilVegSamples.csv')","ex('meadows/XSptsNDVI.csv')","ex('meadows/XSptsPheno.csv')","ex('meadows/LoneyMeadow_30minCO2fluxes_Geog604.xls')","ex('Nile/NilePoints.csv')","ex('penguins/sat_table_splash.csv')","ex('RCVimagery/train_points.shp')","ex('RCVimagery/train_polys7.shp')","ex('RCVimagery/train_polys9.shp')","ex('SanPedro/roads.shp')","ex('SanPedro/slideCentroids.shp')","ex('SanPedro/SPCWatershed.shp')","ex('SanPedro/streams.shp')","ex('SanPedro/trails.shp')","ex('SanPedro/dem.tif')","ex('SanPedro/SI.tif')","ex('SanPedro/SanPedroCreekBacterialCounts.csv')","ex('SFmarine/cordell_bank.shp')","ex('SFmarine/isobath_200.shp')","ex('SFmarine/mainland.shp')","ex('SFmarine/Sanctuaries.shp')","ex('SFmarine/sefi.shp')","ex('SFmarine/transects.shp')","ex('SFmarine/bd200m_v2i.tif')","ex('SFmarine/Transects_Metadata.xls')","ex('SFmarine/TransectsData.xls')","ex('sierra/CA_places.shp')","ex('sierra/908277.csv')","ex('sierra/sagehen_dv.csv')","ex('sierra/Sierra2LassenData.csv')","ex('sierra/sierraClimate.csv')","ex('sierra/sierraData.csv')","ex('sierra/sierraFeb.csv')","ex('sierra/sierraFebShort.csv')","ex('sierra/sierraStations.csv')","ex('SinkingCove/CaveEntrances.shp')","ex('SinkingCove/caves.shp')","ex('SinkingCove/Contour10.shp')","ex('SinkingCove/geology.shp')","ex('SinkingCove/DEM_SinkingCoveGCS.tif')","ex('SinkingCove/DEM_SinkingCoveUTM.tif')","ex('SinkingCove/SinkingCoveSites.csv')","ex('SinkingCove/SinkingCoveWaterChem.xlsx')","ex('streams/streams.csv')","ex('TRI/BayAreaCounties.shp')","ex('TRI/BayAreaTracts.shp')","ex('TRI/BayArea_hillsh.tif')","ex('TRI/CA_MdInc.csv')","ex('TRI/CA_MdInc_Tr_2016.csv')","ex('TRI/CDC_health_data_by_Tract_CA_2018_release.csv')","ex('TRI/TRI_1987_BaySites.csv')","ex('TRI/TRI_1987_CA.csv')","ex('TRI/TRI_1997_CA.csv')","ex('TRI/TRI_2007_CA.csv')","ex('TRI/TRI_2017_CA.csv')","ex('ts/LoneyMeadow_30minCO2fluxes_Geog604.xls')","ex('ts/SolarRad_Temp.xls')","ex('US/US_states_Simp.shp')","ex('US/USDOE_FuelEfficiency2022.xlsx')"],["shapefile","xls","shapefile","shapefile","TIFF","shapefile","shapefile","TIFF","TIFF","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","xls","xls","CSV","CSV","CSV","xls","CSV","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","TIFF","CSV","shapefile","shapefile","shapefile","shapefile","shapefile","shapefile","TIFF","xls","xls","shapefile","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","shapefile","shapefile","shapefile","shapefile","TIFF","TIFF","CSV","xls","CSV","shapefile","shapefile","TIFF","CSV","CSV","CSV","CSV","CSV","CSV","CSV","CSV","xls","xls","shapefile","xls"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>dir<\/th>\n      <th>file<\/th>\n      <th>path<\/th>\n      <th>type<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"scrollX":true,"columnDefs":[],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+
+</div>
+</div>
+</div>
+<h3>References<a href="references.html#references" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-tukey1962" class="csl-entry">
+Tukey, John W. 1962. <span>“The Future of Data Analysis.”</span> <em>The Annals of Mathematical Statistics</em> 33 (1): 1–67.
+</div>
+<div id="ref-tukey1977" class="csl-entry">
+———. 1977. <em>Exploratory Data Analysis</em>. Reading, Mass: Addison-Wesley.
+</div>
+<div id="ref-wickham2016r" class="csl-entry">
+Wickham, Hadley, and Garrett Grolemund. 2016. <em>R for Data Science: Visualize, Model, Transform, Tidy, and Import Data</em>. O’Reilly Media, Inc. <a href="https://www.tidyverse.org/learn/">https://www.tidyverse.org/learn/</a>.
+</div>
+</div>
+<div class="footnotes">
+<hr />
+<ol start="1">
+<li id="fn1"><p>Note: you can also use <code>devtools</code> instead of <code>remotes</code> if you have that installed. They do the same thing; <code>remotes</code> is a subset of <code>devtools</code>. If you see a message about Rtools, you can ignore it since that is only needed for building tools from C++ and things like that.<a href="index.html#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+
+<a href="introduction.html" class="navigation navigation-next navigation-unique" aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"linkedin": false,
+"weibo": false,
+"instapaper": false,
+"vk": false,
+"whatsapp": false,
+"all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": null,
+"text": null
+},
+"history": {
+"link": null,
+"text": null
+},
+"view": {
+"link": null,
+"text": null
+},
+"download": null,
+"search": {
+"engine": "fuse",
+"options": null
+},
+"toc": {
+"collapse": "section"
+},
+"book_filename": "envdatasci",
+"toc_depth": 4
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>

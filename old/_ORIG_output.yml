@@ -1,0 +1,25 @@
+bookdown::gitbook:
+  css: style.css
+  config:
+    toc:
+      before: |
+        <li><a href="./">Environmental Data Science</a></li>
+      after: |
+        <li><a href="https://github.com/rstudio/bookdown" target="blank">Published with bookdown</a></li>
+    book_filename: "envdatasci"
+  toc_depth: 4
+bookdown::pdf_book:
+  keep_tex: TRUE
+  always_allow_html: TRUE
+  documentclass: krantz
+  classoption: krantz2
+  lot: yes
+  lof: yes
+  fontsize: 12pt
+  monofont: "Source Code Pro"
+  monofontoptions: "Scale=0.7"
+  toc_unnumbered: yes
+  includes:
+    in_header: preamble.tex
+    after_body: after_body.tex
+

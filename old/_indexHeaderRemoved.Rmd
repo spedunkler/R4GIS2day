@@ -1,0 +1,25 @@
+---
+title: "Introduction to Environmental Data Science"
+author: "Jerry Davis, SFSU Institute for Geographic Information Science"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+documentclass: krantz
+  classoption: krantz2
+bibliography:
+- book.bib
+- packages.bib
+biblio-style: apalike
+link-citations: yes
+geometry: margin=0.75in
+github-repo: iGISc/EnvDataSci
+description: Background, methods and exercises for using R for environmental data
+  science.  The focus is on applying the R language and various libraries for data
+  abstraction, transformation, data analysis, spatial data/mapping, statistical modeling,
+  and time series, applied to environmental research. Applies exploratory data analysis
+  methods and tidyverse approaches in R, and includes contributed chapters presenting
+  research applications, with associated data and code packages.
+site: bookdown::bookdown_site
+header-includes: \AtBeginDocument{\frontmatter}
+---

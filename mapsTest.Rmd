@@ -1,0 +1,35 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show="asis",results=F,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Spatial Data and Maps {#spatial}
+
+
+filler
+
+## Exercises: Spatial Data and Maps
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=F,results=T)
+```
+
+
+```{}
+
+```
+
+
+
+
+
+:::{.exercise}
+**tmap view mode**.  Also using the western states data, create a tmap in view mode, but don't use the state borders since the basemap will have them. Just before adding shapes, set the basemap to `Esri.NatGeoWorldMap` from the leaflet providers, then continue to the peaks after the plus sign to see the peaks on a National Geographic basemap.
+:::
+
+```{r}
+library(tmap); library
+W_States <- st_read("data/W_States.shp")
+peaksp <- st_read("data/peaks.shp")
+tmap_mode("view")
+tm_basemap(leaflet::providers$Esri.NatGeoWorldMap) +
+tm_shape(peaksp) + tm_symbols(col = "red") + tm_text(text="peak", auto.placement=T)
+```

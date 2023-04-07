@@ -1,0 +1,414 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+# Raster Spatial Analysis {#raster}
+
+\index{raster spatial analysis}Raster spatial analysis is particularly important in environmental analysis, since much environmental data are continuous in nature, based on continuous measurements \index{continuous measurements}from instruments (like temperature, pH, air pressure, water depth, elevation), and raster models work well with continuous data. In the Spatial Data and Maps chapter, we looked at creating rasters from scratch, or converted from features, and visualizing them. Here we'll explore raster analytical methods, commonly working from existing information-rich rasters like elevation data, where we'll start by looking at terrain functions.
+
+We'll make a lot of use of `terra` functions in this chapter\index{terra}, as this package is replacing the `raster` package which has been widely used. One raster package that's probably also worth considering is the `stars` package.
+
+## Terrain functions {#terrain}
+
+\index{terrain functions}Elevation data are particularly information-rich, and a lot can be derived from them that informs us about the nature of landscapes and what drives surface hydrologic and geomorphic processes as well as biotic habitat (some slopes are drier than others, for instance). We'll start by reading in some elevation data from the Marble Mountains of California (Figure \@ref(fig:rasMblElev)) and use terra's terrain function to derive slope\index{slope} (Figure \@ref(fig:rasSlope)), aspect\index{aspect} (Figure \@ref(fig:rasAspect)), and hillshade\index{hillshade} rasters.
+
+```{r rasMblElev, message=FALSE, fig.cap="Marble Mountains (California) elevation"}
+library(terra); library(igisci)
+elev <- rast(ex("marbles/elev.tif"))
+plot(elev)
+```
+
+```{r rasSlope, message=FALSE, fig.cap="Slope"}
+slope <- terrain(elev, v="slope")
+plot(slope)
+```
+
+```{r rasAspect, message=FALSE, fig.cap="Aspect"}
+aspect <- terrain(elev, v="aspect")
+plot(aspect)
+```
+
+... then we'll use \index{classify, terra}terra::classify to make six discrete categorical slope classes (though the legend suggests it's continuous) (Figure \@ref(fig:rasClassifiedSlope))...
+
+```{r rasClassifiedSlope, message=FALSE, fig.cap="Classified slopes"}
+slopeclasses <-matrix(c(00,10,1, 10,20,2, 20,30,3,
+                        30,40,4, 40,50,5, 50,90,6), ncol=3, byrow=TRUE)
+slopeclass <- classify(slope, rcl = slopeclasses)
+plot(slopeclass)
+```
+
+Then a \index{shade, terra}hillshade effect raster with slope and aspect as inputs after converting to radians (Figure \@ref(fig:rasHillshade)):
+
+```{r rasHillshade, message=FALSE, fig.cap="Hillshade"}
+hillsh <- shade(slope/180*pi, aspect/180*pi, angle=40, direction=330)
+plot(hillsh, col=gray(0:100/100))
+```
+
+## Map Algebra in terra
+
+\index{map algebra}Map algebra was originally developed by Dana Tomlin in the 1970s and 1980s (@Tomlin), and was the basis for his Map Analysis Package. It works by assigning raster outputs from an algebraic expression of raster inputs. Map algebra was later incorporated in Esri's Grid and Spatial Analyst subsystems of ArcInfo and ArcGIS. Its simple and elegant syntax makes it still one of the best ways to manipulate raster data.
+
+Let's look at a couple of simple map algebra statements to derive some new rasters, such as converting elevation in metres to feet (Figure \@ref(fig:rasMapAlgebra)).
+
+```{r rasMapAlgebra, message=FALSE, fig.cap="Map algebra conversion of elevations from metres to feet"}
+elevft <- elev / 0.3048
+plot(elevft)
+```
+
+... including some that create and use \index{Boolean}Boolean (true-false) values, where 1 is true and 0 is false, so might answer the question "Is it steep?" (as long as we understand 1 means Yes or true) (Figure \@ref(fig:rasSlopeGT20))...
+
+```{r rasSlopeGT20, message=FALSE, fig.cap="Boolean: slope > 20"}
+steep <- slope > 20
+plot(steep)
+```
+
+... or Figure \@ref(fig:rasIntersection), which shows all areas that are steeper than 20 degrees *and* above 2,000 m elevation.
+
+```{r rasIntersection, message=FALSE, fig.cap="Boolean intersection: (slope > 20) * (elev > 2000)"}
+plot(steep * (elev > 2000))
+```
+
+You should be able to imagine that map algebra is particularly useful when applying a \index{model equation using map algebra}model equation to data to create a prediction map. For instance, later we'll use `lm()` to derive linear regression parameters for predicting February temperature from elevation in the Sierra ...
+
+$$
+Temperature_{prediction} = 11.88 - 0.006{elevation}
+$$ 
+
+... which can be coded in map algebra something like the following if we have an elevation raster, to create a tempPred raster:
+
+```{r eval=F}
+tempPred <- 11.88 - 0.006 * elevation
+```
+
+
+
+## Distance
+
+A continuous raster of distances \index{distance, continuous raster}from significant features can be very informative in environmental analysis. For instance, distance from the coast or a body of water may be an important variable for habitat analysis and ecological niche modeling. The goal of the following is to derive distances from streams as a continuous raster. 
+
+We'll need to know what cell size to use and how far to extend our raster\index{raster structure}. If we have an existing study area raster, this process is simple. We start by converting streams from a SpatVector to a SpatRaster\index{SpatRaster}, as we did a couple of chapters ago. The `terra::distance()` function then uses this structure to provide the cells that we're deriving distance from and then uses that same cell size and extent for the output raster. If we instead used vector features, the `distance` function would return point-to-point distances, very different from deriving continuous rasters\index{continuous rasters, deriving} of Euclidean distance (Figure \@ref(fig:rasStrDist)).
+
+```{r include=F}
+library(igisci)
+library(terra)
+```
+
+```{r rasStrDist, fig.cap="Stream distance raster"}
+streams <- vect(ex("marbles/streams.shp"))
+elev <- rast(ex("marbles/elev.tif"))
+stdist <- terra::distance(rasterize(streams,elev))
+plot(stdist)
+lines(streams)
+```
+If we didn't have an elevation raster, we could use the process we employed while converting features to rasters in the Spatial Data and Maps chapter, where we derived a raster template from the extent of streams, as shown here:
+
+
+```{r eval=F}
+streams <- vect(ex("marbles/streams.shp"))
+XMIN <- ext(streams)$xmin
+XMAX <- ext(streams)$xmax
+YMIN <- ext(streams)$ymin
+YMAX <- ext(streams)$ymax
+aspectRatio <- (YMAX-YMIN)/(XMAX-XMIN)
+cellSize <- 30
+NCOLS <- as.integer((XMAX-XMIN)/cellSize)
+NROWS <- as.integer(NCOLS * aspectRatio)
+templateRas <- rast(ncol=NCOLS, nrow=NROWS, 
+                    xmin=XMIN, xmax=XMAX, ymin=YMIN, ymax=YMAX,
+                    vals=1, crs=crs(streams))
+strms <- rasterize(streams,templateRas)
+stdist <- terra::distance(strms)
+plot(stdist)
+lines(streams)
+```
+
+>In deriving distances, it's useful to remember that distances can go on forever (well, on the planet they may go around and around, if we were using spherical coordinates) so that's another reason we have to specify the raster structure we want to populate.
+
+## Extracting Values
+
+\index{extraction from rasters}A very useful method or environmental analysis and modeling is to extract values from rasters at specific point locations. The point locations might be observations of species, soil samples, or even random points, and getting continuous (or discrete) raster observations can be very useful in a statistical analysis associated with those points. The distance from streams raster we derived earlier, or elevation, or terrain derivatives like slope and aspect might be very useful in a ecological niche model, for instance. We'll start by using random points and use these to extract values from four rasters:
+
+-   **elev**: read in from elev.tif
+-   **slope**: created from elev with **terrain**
+-   **str_dist**: euclidean distance to streams
+-   **geol**: rasterized\index{rasterize, terra} from geology polygon features
+
+```{r terra_vect_rast_terrain_distance}
+library(igisci); library(terra)
+geolshp <- vect(ex("marbles/geology.shp"))
+streams <- vect(ex("marbles/streams.shp"))
+elev <- rast(ex("marbles/elev.tif"))
+slope <- terrain(elev, v="slope")
+str_dist <- terra::distance(rasterize(streams,elev))
+geol <- rasterize(geolshp,elev,field="CLASS")
+```
+
+Note that in contrast to the other rasters, the stream distance raster ends up with no name\index{names, raster}, so we should give it a name:
+
+```{r}
+names(slope)
+names(str_dist)
+names(str_dist) <- "str_dist"
+```
+
+> **On the raster `names` property**: You'll find that many terra functions may not assign the `names` property you'd expect, so it's a good idea to check with `names()` and maybe set it to what we want, as we've just done for `str_dist`. As we'll see later with the focal statistics function, the name of the input is used even though we've modified it in the function result, and that may create confusion when we use it. We just saw that the `distance()` function produced an empty name, and there may be others you'll run into. For many downstream uses, the names property may not matter, but it will be important when we extract values from rasters into points where the `names` property is assigned to the variable created for the points.
+
+Then we'll create 200 **random xy points** \@ref(random) within the extent of `elev`, and assign it the same `crs`.
+
+```{r randomPoints, warning=F, message=F}
+library(sf)
+x <- runif(200, min=xmin(elev), max=xmax(elev))
+y <- runif(200, min=ymin(elev), max=ymax(elev))
+rsamps <- st_as_sf(data.frame(x,y), coords = c("x","y"), crs=crs(elev))
+```
+
+To visualize where the random points land, we'll map them on the geology sf, streams, and contours created from elev using default settings. The `terra::as.contour` function will create these as SpatVector data, which along with `streams` we'll convert with `sf::st_as_sf` to display in ggplot (Figure \@ref(fig:rasRandomPtsMarbles))\index{contours}. 
+
+```{r message=F, results='hide'}
+library(tidyverse)
+cont <- st_as_sf(as.contour(elev, nlevels=30))
+geology <- st_read(ex("marbles/geology.shp"))
+```
+
+```{r rasRandomPtsMarbles, message=F, fig.cap="Random points in the Marble Valley area, Marble Mountains, California"}
+ggplot() + 
+  geom_sf(data=geology, aes(fill=CLASS)) +
+  geom_sf(data=cont, col="gray") + 
+  geom_sf(data=rsamps) + 
+  geom_sf(data=st_as_sf(streams), col="blue")
+```
+
+Now we'll extract \index{extraction from rasters}data from each of the rasters, using an S4 version of `rsamps`, and then bind them together with the `rsamps` simple features. We'll have to use `terra::vect` and `sf::st_as_sf` to convert feature data to the type required by specific tools, and due to a function naming issue, we'll need to use the package prefix with `terra::extract`, but otherwise the code is pretty straightforward.
+
+```{r}
+rsampS4 <- vect(rsamps)
+elev_ex <- terra::extract(elev, rsampS4) %>% dplyr::select(-ID)
+slope_ex <- terra::extract(slope, rsampS4) %>% dplyr::select(-ID)
+geol_ex <- terra::extract(geol, rsampS4) %>% 
+  dplyr::rename(geology = CLASS) %>% dplyr::select(-ID)
+strD_ex <- terra::extract(str_dist, rsampS4)  %>% dplyr::select(-ID)
+rsampsData <- bind_cols(rsamps, elev_ex, slope_ex, geol_ex, strD_ex)
+```
+
+Then plot the map with the points colored by geology (Figure \@ref(fig:rasExtractedGeology))...
+
+```{r rasExtractedGeology, fig.cap="Points colored by geology extracted from raster"}
+ggplot() + 
+  geom_sf(data=cont, col="gray") + 
+  geom_sf(data=rsampsData, aes(col=geology)) + 
+  geom_sf(data=st_as_sf(streams), col="blue")
+```
+
+... and finally `str_dist` by `elev`, colored by `geology`, derived by extracting. We'll filter out the NAs along the edge (Figure \@ref(fig:rasElevByStrDist)). Of course other analyses and visualizations are possible.
+
+```{r rasElevByStrDist, fig.cap="Elevation by stream distance, colored by geology, random point extraction"}
+rsampsData %>%
+  filter(!is.na(geology)) %>% 
+  ggplot(aes(x=str_dist,y=elev,col=geology)) + 
+  geom_point() + geom_smooth(method = "lm", se=F)
+```
+
+Here's a similar example, but using water sample data\index{sample data}, which we can then use to relate to extracted raster values to look at relationships such as in Figures \@ref(fig:rasCarbonateGeol),  \@ref(fig:rasSlopeElevGeol), and \@ref(fig:rasLogHardness). It's worthwhile to check various results along the way, as we did above. Most of the code is very similar to what we used above, including dealing with naming the distance rasters.
+
+```{r include=F}
+library(igisci)
+library(terra); library(sf); library(tidyverse)
+```
+
+```{r extraction, results='hide'}
+streams <- vect(ex("marbles/streams.shp"))
+trails <- vect(ex("marbles/trails.shp"))
+elev <- rast(ex("marbles/elev.tif"))
+geolshp <- vect(ex("marbles/geology.shp"))
+sampsf <- st_read(ex("marbles/samples.shp")) %>% 
+  dplyr::select(CATOT, MGTOT, PH, TEMP, TDS)
+samples <- vect(sampsf) 
+strms <- rasterize(streams,elev)
+tr <- rasterize(trails,elev)
+geol <- rasterize(geolshp,elev,field="CLASS")
+stdist <- terra::distance(strms); names(stdist) <- "stDist"
+trdist <- terra::distance(tr); names(trdist) = "trDist"
+slope <- terrain(elev, v="slope")
+aspect <- terrain(elev, v="aspect")
+elev_ex <- terra::extract(elev, samples) %>% dplyr::select(-ID)
+slope_ex <- terra::extract(slope, samples) %>% dplyr::select(-ID)
+aspect_ex <- terra::extract(aspect, samples) %>% dplyr::select(-ID)
+geol_ex <- terra::extract(geol, samples) %>% 
+  dplyr::rename(geology = CLASS) %>% dplyr::select(-ID)
+strD_ex <- terra::extract(stdist, samples) %>% dplyr::select(-ID)
+trailD_ex <- terra::extract(trdist, samples) %>% dplyr::select(-ID)
+samplePts <- cbind(samples,elev_ex,slope_ex,aspect_ex,geol_ex,strD_ex,trailD_ex)
+samplePtsDF <- as.data.frame(samplePts)
+```
+
+```{r rasCarbonateGeol, fig.cap="Dissolved calcium carbonate grouped by geology extracted at water sample points"}
+head(samplePtsDF)
+ggplot(data=samplePtsDF, aes(x=geology,y=CATOT)) + geom_boxplot()
+```
+
+```{r rasSlopeElevGeol, fig.cap="Slope by elevation colored by extracted geology"}
+ggplot(data=samplePtsDF, aes(x=slope,y=elev,col=geology)) + geom_point()
+cont <- st_as_sf(as.contour(elev, nlevels=30))
+```
+
+```{r rasLogHardness, fig.cap="Logarithm of calcium carbonate total hardness at sample points, showing geologic units"}
+ggplot() + 
+  geom_sf(data=st_as_sf(geolshp), aes(fill=CLASS)) +
+  geom_sf(data=cont, col="gray") + 
+  geom_sf(data=st_as_sf(streams), col="blue") +
+  geom_sf(data=sampsf, aes(size=log(CATOT)))
+```
+
+## Focal Statistics
+
+\index{focal statistics}Focal (or neighborhood\index{neighborhood statistics}) statistics work with a continuous or categorical raster to pass a moving window through it, assigning the central cell with summary statistic applied to the neighborhood, which by default is a $3\times3$ neighborhood (`w=3`) centered on the cell. One of the simplest is a low-pass filter where `fun="mean"`. This applied to a continuous raster like elevation will look very similar to the original, so we'll apply a larger $9\times9$ (`w=9`) window \index{low-pass filter}so we can see the effect (Figure \@ref(fig:rasFocalMean)), which you can compare with the earlier plots of raw elevation.
+
+```{r rasFocalMean, fig.cap="9x9 focal mean of elevation"}
+elevLowPass9 <- terra::focal(elev,w=9,fun="mean")
+names(elevLowPass9) <- "elevLowPass9" # otherwise gets "elev"
+plot(elevLowPass9)
+```
+
+The effect is probably much more apparent in a hillshade, where the very smooth 9x9 low-pass filtered elevation will seem to create an out-of-focus hillshade (Figure \@ref(fig:rasHillshFocalMean)).
+
+```{r rasHillshFocalMean, fig.cap="Hillshade of 9x9 focal mean of elevation"}
+slope9 <- terrain(elevLowPass9, v="slope")
+aspect9 <- terrain(elevLowPass9, v="aspect")
+plot(shade(slope9/180*pi, aspect9/180*pi, angle=40, direction=330),
+     col=gray(0:100/100))
+```
+
+For categorical/factor data such as geology (Figure \@ref(fig:rasMblGeol)), the modal class in the neighborhood \index{focal modal value for categorical rasters}can be defined (Figure \@ref(fig:rasModalGeol)).
+
+```{r rasMblGeol, fig.cap="Marble Mountains geology raster"}
+plot(geol)
+```
+
+```{r rasModalGeol, fig.cap="Modal geology in 9 by 9 neighborhoods"}
+plot(terra::focal(geol,w=9,fun="modal"))
+```
+
+Note that while plot displayed these with a continuous legend, the modal result is going to be an integer value representing the modal class, the most common rock type in the neighborhood. This is sometimes called a *majority filter*. *Challenge*: how could we link the modes to the original character CLASS value, and produce a more useful map?
+
+## Zonal Statistics
+
+\index{zonal statistics}Zonal statistics let you stratify by zone, and is a lot like the grouped summary (\@ref(group-summary)) we've done before, but in this case the groups are connected to the input raster values by location. There's probably a more elegant way of doing this, but here are a few that are then joined together.
+
+```{r include=F}
+library(terra); library(dplyr)
+
+```
+
+```{r zonal}
+meanElev <- zonal(elev,geol,"mean") %>% rename(mean=elev)
+maxElev <- zonal(elev,geol,"max") %>% rename(max=elev)
+minElev <- zonal(elev,geol,"min") %>% rename(min=elev)
+```
+```{r zonal2}
+left_join(left_join(meanElev,maxElev,by="CLASS"),minElev,by="CLASS")
+```
+
+\pagebreak
+## Exercises: Raster Spatial Analysis
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+:::{.exercise}
+You can get the four values that define the extent of a raster with terra functions `xmin`, `xmax`, `ymin`, and `ymax`. Use these with the raster `elev` created from `"marbles/elev.tif"`, then derive 100 uniform random x and y values with those min and max values. Use cbind to display a matrix of 100 coordinate pairs.
+:::
+```{r}
+library(igisci)
+library(terra); library(sf)
+elev <- rast(ex("marbles/elev.tif"))
+x <- runif(100, min=xmin(elev), max=xmax(elev))
+y <- runif(100, min=ymin(elev), max=ymax(elev))
+```
+
+
+:::{.exercise}
+Create sf points from these 100 uniform random coordinate pairs. Use tmap to display them on a base of the elevation raster.
+:::
+```{r}
+x <- runif(100, min=xmin(elev), max=xmax(elev))
+y <- runif(100, min=ymin(elev), max=ymax(elev))
+rsamps <- st_as_sf(data.frame(x,y), coords = c("x","y"), crs=st_crs(elev))
+library(tmap)
+tm_shape(elev) + tm_raster() +
+  tm_shape(rsamps) + tm_dots()
+```
+
+:::{.exercise}
+**Geology and elevation by stream and trail distance**. Now use those points to extract values from stream distance, trail distance, geology, slope, aspect, and elevation, and display that sf data frame as a table, then plot trail distance (x) vs stream distance (y) colored by geology and sized by elevation (Figure \@ref(fig:rasGeolElevDistGoal)).
+:::
+```{r}
+library(igisci)
+library(terra); library(sf); library(tidyverse)
+elev <- rast(ex("marbles/elev.tif"))
+x <- runif(100, min=xmin(elev), max=xmax(elev))
+y <- runif(100, min=ymin(elev), max=ymax(elev))
+rsamps <- vect(st_as_sf(data.frame(x,y), coords = c("x","y"), crs=st_crs(elev)))
+streams <- vect(ex("marbles/streams.shp"))
+trails <- vect(ex("marbles/trails.shp"))
+geolshp <- vect(ex("marbles/geology.shp"))
+strms <- rasterize(streams,elev)
+tr <- rasterize(trails,elev)
+geol <- rasterize(geolshp,elev,field="CLASS")
+stdist <- terra::distance(strms); names(stdist) = "stDist"
+trdist <- terra::distance(tr); names(trdist) = "trDist"
+slope <- terrain(elev, v="slope")
+aspect <- terrain(elev, v="aspect")
+elevation <- terra::extract(elev, rsamps) %>% dplyr::select(-ID)
+slopeDeg <- terra::extract(slope, rsamps) %>% dplyr::select(-ID)
+aspectDeg <- terra::extract(aspect, rsamps) %>% dplyr::select(-ID)
+geology <- terra::extract(geol, rsamps) %>% dplyr::rename(geology = CLASS) %>% dplyr::select(-ID)
+streamDist <- terra::extract(stdist, rsamps) %>% dplyr::select(-ID)
+trailDist <- terra::extract(trdist, rsamps) %>% dplyr::select(-ID)
+samplePts <- cbind(rsamps,elevation,slopeDeg,aspectDeg,geology,streamDist,trailDist)
+samplePtsDF <- as.data.frame(samplePts)
+ggplot(data=samplePtsDF, aes(x=trDist, stDist, col=geology, size=elev)) + geom_point()
+```
+
+```{r rasGeolElevDistGoal, include=T, eval=T, echo=F, out.width='50%', fig.align="center", fig.cap="Geology and elevation by stream and trail distance (goal)"}
+knitr::include_graphics(here::here("img","goal_rasGeolElevStTrD.png"))
+```
+
+:::{.exercise}
+Create a slope raster from "SanPedro/dem.tif" then a "steep" raster of all slopes > 26 degrees, determined by a study of landslides to be a common landslide threshold, then display them using (palette="Reds", alpha=0.5, legend.show=F) along with roads "SanPedro/roads.shp" in "black", streams "SanPedro/streams.shp" in "blue", and watershed borders "SanPedro/SPCWatershed.shp" in "darkgreen" with lwd=2.
+:::
+```{r}
+library(igisci)
+library(terra); library(sf); library(tidyverse); library(tmap)
+elev <- rast(ex("SanPedro/dem.tif"))
+streams <- vect(ex("SanPedro/streams.shp"))
+roads <- vect(ex("SanPedro/roads.shp"))
+wshed <- vect(ex("SanPedro/SPCWatershed.shp"))
+slope <- terrain(elev, v="slope")
+steep <- slope > 26
+tm_shape(steep) + tm_raster(palette="Reds", alpha=0.5, legend.show=F) +
+  tm_shape(st_as_sf(roads)) + tm_lines("black") +
+  tm_shape(st_as_sf(streams)) + tm_lines("blue") +
+  tm_shape(st_as_sf(wshed)) + tm_borders("darkgreen", lwd=2)
+```
+
+:::{.exercise}
+Add a hillshade to that map.
+:::
+```{r}
+library(igisci)
+library(terra); library(sf); library(tidyverse); library(tmap)
+elev <- rast(ex("SanPedro/dem.tif"))
+streams <- vect(ex("SanPedro/streams.shp"))
+roads <- vect(ex("SanPedro/roads.shp"))
+wshed <- vect(ex("SanPedro/SPCWatershed.shp"))
+slope <- terrain(elev, v="slope")
+steep <- slope > 26
+aspect <- terrain(elev, v="aspect")
+hillsh <- shade(slope/180*pi, aspect/180*pi, angle=40, direction=330)
+tm_shape(hillsh) + tm_raster(palette="-Greys",legend.show=F,n=20) +
+  tm_shape(steep) + tm_raster(palette="Reds", alpha=0.5, legend.show=F) +
+  tm_shape(st_as_sf(roads)) + tm_lines("black") +
+  tm_shape(st_as_sf(streams)) + tm_lines("blue") +
+  tm_shape(st_as_sf(wshed)) + tm_borders("darkgreen", lwd=2)
+
+```
+

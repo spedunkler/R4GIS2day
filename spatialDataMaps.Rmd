@@ -1,0 +1,798 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Spatial Data and Maps {#spatial}
+
+```{r SpatialDataMaps, echo=F}
+library(igisci)
+library(sf); library(tidyverse); library(readxl); library(tmap); library(terra)
+wChemData <- read_excel(ex("SinkingCove/SinkingCoveWaterChem.xlsx")) %>%
+  mutate(siteLoc = str_sub(Site,start=1L, end=1L))
+wChemTrunk <- wChemData %>% filter(siteLoc == "T") %>% mutate(siteType = "trunk")
+wChemDrip <- wChemData %>% filter(siteLoc %in% c("D","S")) %>% mutate(siteType = "dripwater")
+wChemTrib <- wChemData %>% filter(siteLoc %in% c("B", "F", "K", "W", "P")) %>% 
+  mutate(siteType = "tributary")
+wChemData <- bind_rows(wChemTrunk, wChemDrip, wChemTrib)
+sites <- read_csv(ex("SinkingCove/SinkingCoveSites.csv"))
+wChem <- wChemData %>%
+  left_join(sites, by = c("Site" = "site")) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+tmap_mode("plot")
+DEM <- rast(ex("SinkingCove/DEM_SinkingCoveUTM.tif"))   
+slope <- terrain(DEM, v='slope')
+aspect <- terrain(DEM, v='aspect')
+hillsh <- shade(slope/180*pi, aspect/180*pi, 40, 330) 
+bounds <- st_bbox(wChem)
+xrange <- bounds$xmax - bounds$xmin
+yrange <- bounds$ymax - bounds$ymin
+xMIN <- as.numeric(bounds$xmin - xrange/10)
+xMAX <- as.numeric(bounds$xmax + xrange/10)
+yMIN <- as.numeric(bounds$ymin - yrange/10)
+yMAX <- as.numeric(bounds$ymax + yrange/10)
+newbounds <- st_bbox(c(xmin=xMIN, xmax=xMAX, ymin=yMIN, ymax=yMAX), crs= st_crs(4326))
+tm_shape(hillsh,bbox=newbounds) +
+  tm_raster(palette="-Greys",legend.show=F,n=20) +
+  tm_shape(DEM) + tm_raster(palette=terrain.colors(24), alpha=0.5,legend.show=F) +
+  tm_shape(wChem) + tm_symbols(size="TH", col="Lithology", scale=2, shape="siteType") +
+  tm_layout(legend.position = c("left", "bottom")) +
+  tm_graticules(lines=F)
+```
+
+
+The Spatial section of this book adds the \index{spatial dimension}spatial dimension and \index{geographic data science}*geographic* data science. Most environmental systems are significantly affected by location, so the geographic perspective is highly informative. In this chapter, we'll explore the basics of
+
+-   building and using feature-based (vector) data using the `sf` (simple features) package
+-   raster data using the `terra` package
+-   some common mapping methods in `plot` and `ggplot2`
+
+Especially for the feature data, which is built on a database model (with geometry as one variable), the tools we've been learning in `dplyr` and `tidyr` will also be useful to working with attributes.
+
+*Caveat*: Spatial data and analysis is very useful for environmental data analysis, and we'll only scratch the surface. Readers are encouraged to explore other resources on this important topic, such as:
+
+- *Geocomputation with R* at <https://geocompr.robinlovelace.net/>
+- *Simple Features for R* at <https://r-spatial.github.io/sf/>
+- *Spatial Data Science with R* at <https://rspatial.org>
+
+## Spatial Data
+
+\index{spatial data}Spatial data are data using a Cartesian coordinate system with x, y, z, and maybe more dimensions. Geospatial data are spatial data that we can map on our planet and relate to other geospatial data based on geographic coordinate systems (GCS) of longitude and latitude or known projections to planar coordinates like Mercator, Albers, or many others. You can also use local coordinate systems with the methods we'll learn, to describe geometric objects or a local coordinate system to "map out" an archaeological dig or describe the movement of ants on an anthill, but we'll primarily use geospatial data.
+
+To work with spatial data requires extending R to deal with it using packages. Many have been developed, but the field is starting to mature using international open GIS standards. We'll look at two, one for features, the other including rasters, and you'll need to install each with `install.packages("sf")` and `install.packages("terra")`.
+
+**`sf`** (Simple Features)\index{sf simple features}
+
+-   Feature-based (vector) methods
+-   ISO 19125 standard for GIS geometries
+-   Has functions for working with spatial data
+-   Doesn't need many additional packages, though you may still need `rgdal` installed for some tools you want to use
+-   Works with ggplot2 and tmap for nice looking maps
+-   Cheat sheet and other information at <https://r-spatial.github.io/sf/> 
+-   Earliest CRAN archive is 0.2 on 2016-10-26, 1.0 not until 2021-06-29
+-   Author: Edzer Pebesma
+
+**`terra`**\index{terra package}
+
+-   Intended to eventually replace `raster`, by the same author (Hijmans)
+-   CRAN: "Methods for spatial data analysis with raster and vector data. Raster methods allow for low-level data manipulation as well as high-level global, local, zonal, and focal computation. The predict and interpolate methods facilitate the use of regression type (interpolation, machine learning) models for spatial prediction, including with satellite remote sensing data. Processing of very large files is supported. See the manual and tutorials on <https://rspatial.org/terra/> to get started."
+
+### Simple geometry building in sf and terra
+
+> We won't explore this here, but the Introduction to Environmental Data Science book https://bookdown.org/igisc/EnvDataSci/ includes methods for building sf and terra features from geometries. We'll skip to using points in data frames and shapefiles.
+
+### Building points from a data frame
+
+\index{points from a data frame}We're going to take a different approach with points, since if we're building them from scratch they commonly come in the form of a data frame with x and y columns, so the `st_as_sf` is a nice simple approach to bringing in points with coordinates stored in a data frame, a very common situation.
+
+The `sf::st_as_sf` function is useful for a lot of things, and follows the convention of R's many "as" functions: if it can understand the input as having "space and time" (st) data, it can convert it to an sf.
+
+We'll start by creating a data frame representing 12 Sierra Nevada (and some adjacent) weather stations, with variables entered as vectors, including attributes. The order of vectors needs to be the same for all, where the first point has index 1, etc.
+
+```{r}
+sta  <- c("OROVILLE","AUBURN","PLACERVILLE","COLFAX","NEVADA CITY","QUINCY",
+          "YOSEMITE","PORTOLA","TRUCKEE","BRIDGEPORT","LEE VINING","BODIE")
+long <- c(-121.55,-121.08,-120.82,-120.95,-121.00,-120.95,
+          -119.59,-120.47,-120.17,-119.23,-119.12,-119.01)
+lat <-  c(39.52,38.91,38.70,39.09,39.25,39.94,
+          37.75,39.81,39.33,38.26,37.96,38.21)
+elev <- c(52,394,564,725,848,1042,
+          1225,1478,1775,1972,2072,2551)
+temp <- c(10.7,9.7,9.2,7.3,6.7,4.0,
+          5.0,0.5,-1.1,-2.2,0.4,-4.4)
+prec <- c(124,160,171,207,268,182,
+          169,98,126,41,72,40)
+```
+
+To build the sf data, we start by building the data frame...
+
+```{r}
+df <- data.frame(sta,elev,temp,prec,long,lat)
+```
+
+... then use the very handy `sf::st_as_sf` function to make an sf out of it, using the long and lat as a source of coordinates (Figure \@ref(fig:mapsPtsBySF)).
+
+```{r mapsPtsBySF, fig.cap="Points created from a dataframe with Simple Features"}
+wst <- st_as_sf(df, coords=c("long","lat"), crs=4326)
+ggplot(data=wst) + geom_sf(mapping = aes(col=elev))
+```
+
+
+### Creating features from shapefiles
+
+Both sf's \index{st\_read}`st_read` and terra's \index{vect}`vect` read the open-GIS \index{shapefile}*shapefile* format developed by Esri for points, polylines, and polygons. You would normally have shapefiles (and all the files that go with them -- .shx, etc.) stored on your computer, but we'll access one from the `igisci` external data folder, and use that `ex()` function we used earlier with CSVs. *Remember that we could just include that and the library calls just once at the top of our code like this...*
+
+```{r readBayAreaCountiesPrep}
+library(igisci)
+library(sf)
+```
+
+If we just send a spatial dataset like an `sf` spatial data frame to the plot system, it will plot all of the variables by default (Figure \@ref(fig:mapsPlotBayAreaCo)).
+
+```{r warning=F, message=F, results='hide'}
+BayAreaCounties <- st_read(ex("BayArea/BayAreaCounties.shp"))
+```
+```{r mapsPlotBayAreaCo, warning=F, message=F, fig.cap="A simple plot of polygon data by default shows all variables"}
+plot(BayAreaCounties)
+```
+
+But with just one variable, of course, it just produces a single map (Figure \@ref(fig:mapsBayAreaCo1var)).
+
+```{r mapsBayAreaCo1var, fig.cap='A single map with a legend is produced when a variable is specified'}
+plot(BayAreaCounties["POPULATION"])
+```
+
+Notice that in the above map, we used the `[]` accessor. Why didn't we use the simple `$` accessor? Remember that plot() figures out what to do based on what you provide it. And there's an important difference in what you get with the two accessors, which we can check with class():
+
+```{r}
+class(BayAreaCounties["POPULATION"])
+class(BayAreaCounties$POPULATION)
+```
+
+You might see that what you get with `plot(BayAreaCounties$POPULATION)` is not very informative, since the object is just a numeric vector, while using `[]` accessor returns a spatial dataframe. 
+
+There's a lot more we could do with the base R plot system, so we'll learn some of these before exploring what we can do with `ggplot2`, `tmap`, and `leaflet`. But first we need to learn more about building geospatial data.
+
+We'll use `st_as_sf()` for that, but we'll need to specify the coordinate referencing system (CRS), in this case GCS. We'll only briefly explore how to specify the CRS here. For a thorough coverage, please see @Geocomputation.
+
+## Coordinate Referencing Systems
+
+\index{coordinate referencing systems crs}Before we try the next method for bringing in spatial data -- converting data frames -- we need to look at coordinate referencing systems (CRS). First, there are quite a few, with some spherical like the geographic coordinate system (GCS) of longitude and latitude, and others planar projections of GCS using mathematically defined projections such as Mercator, Albers Conformal Conic, Azimuthal, etc., and including widely used government-developed systems such as UTM (universal transverse mercator) or state plane. Even for GCS, there are many varieties since geodetic datums can be chosen, and for very fine resolution work where centimetres or even millimetres matter, this decision can be important (and tectonic plate movement can play havoc with tying it down.)
+
+There are also multiple ways of expressing the CRS, either to read it or to set it. The full specification of a CRS can be displayed for data already in a CRS, with either \index{st\_crs}`sf::st_crs` or \index{crs, terra}`terra::crs`. 
+
+```{r include=F}
+library(terra); library(igisci); library(sf)
+```
+
+```{r showCRS}
+st_crs(CA_counties)
+```
+
+... though there are other ways to see the crs in shorter forms, or its individual properties :
+
+
+```{r}
+st_crs(CA_counties)$proj4string
+st_crs(CA_counties)$units_gdal
+st_crs(CA_counties)$epsg
+
+```
+
+So, to convert the sierra data into \index{st\_as\_sf}geospatial data with `st_as_sf`, we might either do it with the reasonably short PROJ format ...
+
+    GCS <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+    wsta = st_as_sf(sierraFeb, coords = c("LONGITUDE","LATITUDE"), crs=GCS)
+
+... or with the even shorter EPSG code (which we can find by Googling), which can either be provided as text `"epsg:4326"` or often just the number, which we'll use next.
+
+## Creating sf Data from Data Frames
+
+\index{sf data from data frames}As we saw earlier, if your data frame has geospatial coordinates like `LONGITUDE` and `LATITUDE` ...
+
+```{r sierraFeb}
+names(sierraFeb)
+```
+
+... we have what we need to create geospatial data from it. Earlier we read in a series of vectors built in code with `c()` functions from 12 selected weather stations; this time we'll use a data frame that has all of the Sierra Nevada weather stations (Figure \@ref(fig:mapsPtsCreatedFromDF)).
+
+```{r mapsPtsCreatedFromDF, fig.cap="Points created from data frame with coordinate variables"}
+wsta <- st_as_sf(sierraFeb, coords = c("LONGITUDE","LATITUDE"), crs=4326)
+ggplot(data=wsta) + geom_sf(aes(col=ELEVATION))
+```
+
+
+## Building a 2-state map from geometry
+
+Let's briefly look at some code that builds two state boundary features with attributes from a set of GCS coordinates entered as vectors of coordinate pairs, using `sf` geometry-building methods, with simple attribues added using `bind_rows()`. 
+
+> Feel free to just copy this and run it. We aren't going to go over these methods in this 2-day course, but building geometries this way is covered in https://bookdown.org/igisc/EnvDataSci/.  
+
+```{r buildCANV}
+library(sf); library(tidyverse)
+CA_matrix <- rbind(c(-124,42),c(-120,42),c(-120,39),c(-114.5,35),
+  c(-114.1,34.3),c(-114.6,32.7),c(-117,32.5),c(-118.5,34),c(-120.5,34.5),
+  c(-122,36.5),c(-121.8,36.8),c(-122,37),c(-122.4,37.3),c(-122.5,37.8),
+  c(-123,38),c(-123.7,39),c(-124,40),c(-124.4,40.5),c(-124,41),c(-124,42))
+NV_matrix <- rbind(c(-120,42),c(-114,42),c(-114,36),c(-114.5,36),
+  c(-114.5,35),c(-120,39),c(-120,42))
+CA_list <- list(CA_matrix);       NV_list <- list(NV_matrix)
+CA_poly <- st_polygon(CA_list);   NV_poly <- st_polygon(NV_list)
+sfc_2states <- st_sfc(CA_poly,NV_poly,crs=4326)  # crs=4326 specifies GCS
+# st_geometry_type(sfc_2states)
+attributes <- bind_rows(c(abb="CA", area=423970, pop=39.56e6),
+                        c(abb="NV", area=286382, pop=3.03e6)) %>%
+  mutate(area=as.numeric(area),pop=as.numeric(pop))
+twostates <- st_sf(attributes, geometry = sfc_2states)
+```
+
+## Using maptiles to create a basemap
+
+\index{maptiles}For vector data, it's often nice to display over a \index{basemap}basemap by accessing raster tiles that are served on the internet by various providers. We'll use the `maptiles` package to try displaying the `CA` and `NV` boundaries we created earlier. The `maptiles` package supports a variety of basemap providers, and I've gotten the following to work: `"OpenStreetMap"`, `"Stamen.Terrain"`, `"Stamen.TerrainBackground"`, `"Esri.WorldShadedRelief"`, `"Esri.NatGeoWorldMap"`, `"Esri.WorldGrayCanvas"`, `"CartoDB.Positron"`, `"CartoDB.Voyager"`, `"CartoDB.DarkMatter"`, `"OpenTopoMap"`, `"Wikimedia"`, *however, they don't work at all scales and locations -- you'll often see an Error in grDevices, if so then try another provider -- the default `"OpenStreetMap"` seems to work the most reliably* (Figure \@ref(fig:mapsMaptiles)).
+
+```{r mapsMaptiles, message=F, fig.cap="Using maptiles for a base map"}
+library(terra); library(maptiles)
+# Get the raster that covers the extent of CANV:
+calnevaBase <- get_tiles(twostates, provider="OpenTopoMap")
+st_crs(twostates)$epsg
+plotRGB(calnevaBase)  # starts plot with a raster basemap
+lines(vect(twostates), col="black", lwd=2)
+```
+
+In the code above, we can also see the use of `terra` functions and parameters. Learn more about these by reviewing the code and considering:
+
+**terra functions**: The `terra::vect()` function creates a `SpatVector` that works with `terra::lines` to display the boundary lines in `plot()`. (More on `terra` later, in the Raster section.)
+
+**parameters**: Note the use of the parameter `lwd` (line width) from the plot system. This is one of *many* parameter settings described in **`?par`**. It defaults to 1, so 2 makes it twice as thick. You could also use lty (line type) to change it to a dashed line with `lty="dashed"` or `lty=2`.
+
+And for the `sierraFeb` data, we'll start with `st_as_sf` and the coordinate system (4326 for GCS), then use a `maptiles` basemap again, and the `terra::points` method to add the points (Figure \@ref(fig:mapsConvertedSF4tiles)).
+
+```{r mapsConvertedSF4tiles, fig.cap="Converted sf data for map with tiles"}
+library(terra); library(maptiles)
+sierraFebpts <- st_as_sf(sierraFeb, coords = c("LONGITUDE", "LATITUDE"), crs=4326)
+sierraBase <- get_tiles(sierraFebpts)
+st_crs(sierraFebpts)$epsg
+plotRGB(sierraBase)
+points(vect(sierraFebpts))
+```
+
+## Raster data
+
+\index{raster data}Simple *Features* are feature-based, of course, so it's not surprising that `sf` doesn't have support for rasters. So we'll want to either use the `raster` package or its imminent replacement, `terra` (which also has vector methods -- see @rspatial and @Geocomputation)\index{terra}, and I'm increasingly using `terra` since it has some improvements that I find useful.
+
+### Building rasters
+
+We can start by building one from scratch. More explanation on this method is in https://bookdown.org/igisc/EnvDataSci/, but here's a quick look.  The `terra` package has a `rast()` function \index{rast}for this.
+
+```{r warning=F}
+library(terra)
+new_ras <- rast(ncol = 12, nrow = 6,
+                xmin = -180, xmax = 180, ymin = -90, ymax = 90,
+                vals = 1:72)
+names(new_ras) <- "world30deg"
+```
+Simple feature data or `SpatVectors` can be plotted along with rasters using terra's lines, polys, or points functions. Here we'll use the `twostates` `sf` we created earlier (make sure to run that code again if you need it). Look closely at the map for our two states (Figure \@ref(fig:mapsSpatRasterSpatVector)).
+
+```{r mapsSpatRasterSpatVector, fig.cap="Simple plot of a worldwide SpatRaster of 30-degree cells, with SpatVector of CA and NV added"}
+plot(new_ras, main=paste("CANV on",new_ras@ptr$names))
+CANV <- vect(twostates)
+lines(CANV)
+```
+
+### Vector to raster conversion
+\index{vector to raster conversion} To convert rasters to vectors requires having a template raster with the desired cell size and extent, or an existing raster we can use as a template -- we ignore what the values are -- such as `elev.tif` in the following example (Figure \@ref(fig:mapsStrRas)):
+
+```{r include=F}
+library(igisci)
+library(terra)
+```
+
+```{r mapsStrRas, fig.cap="Stream raster converted from stream features, with 30 m cells from an elevation raster template"}
+streams <- vect(ex("marbles/streams.shp"))
+elev <- rast(ex("marbles/elev.tif"))
+streamras <- rasterize(streams,elev)
+plot(streamras, col="blue")
+```
+#### What if we have no raster to use as a template?
+
+There's a way. See the coverage of this in https://bookdown.org/igisc/EnvDataSci/ .
+
+#### Plotting some existing downloaded raster data
+
+Let's plot some Shuttle Radar Topography Mission (SRTM) elevation data for the Virgin River Canyon at Zion National Park (Figure \@ref(fig:mapsSRTM)), from Jakub Nowosad's `spDataLarge` repository, which we'll need to first install with:
+
+    install.packages("spDataLarge",repos="https://nowosad.github.io/drat/",type="source")
+
+```{r mapsSRTM, fig.cap="Shuttle Radar Topography Mission (SRTM) image of Virgin River Canyon area, southern Utah"}
+library(terra)
+plot(rast(system.file("raster/srtm.tif", package="spDataLarge")))
+```
+```{r include=F}
+rcvPlanet = rast(ex("RCVimagery/planetScope20210629/20210629_175951_25_241d_3B_AnalyticMS_SR_clip.tif"))
+plot(rcvPlanet)
+```
+
+## ggplot2 for Maps
+
+\index{ggplot2 for maps}The Grammar of Graphics is the gg of ggplot.
+
+-   Key concept is separating aesthetics from data
+-   Aesthetics can come from variables (using aes()setting) or be constant for the graph
+
+Mapping tools that follow this lead
+
+-   ggplot, as we have seen, and it continues to be enhanced (Figure \@ref(fig:mapsGGsimple))
+-   tmap (Thematic Maps) <https://github.com/mtennekes/tmap> Tennekes, M., 2018, tmap: Thematic Maps in R, *Journal of Statistical Software* 84(6), 1-39
+
+```{r mapsGGsimple, fig.cap="simple ggplot map"}
+ggplot(CA_counties) + geom_sf()
+
+```
+
+Try `?geom_sf` and you'll find that its first parameter is mapping with `aes()` by default. The data property is inherited from the ggplot call, but commonly you'll want to specify data=something in your geom_sf call.
+
+**Another simple ggplot, with labels**
+
+Adding labels is also pretty easy using `aes()` (Figure \@ref(fig:mapsGGlabels)). 
+
+```{r mapsGGlabels, warning=F, message=F, fig.cap="labels added"}
+ggplot(CA_counties) + geom_sf() +
+  geom_sf_text(aes(label = NAME), size = 1.5)
+
+```
+
+**And now with fill color, repositioned legend, and no "x" or "y" labels**
+
+The x and y labels are unnecessary since the graticule is provided, and for many maps there's a better place to put the legend than what happens by default -- for California's shape, the legend goes best in Nevada (Figure \@ref(fig:mapsLegend)). 
+
+```{r mapsLegend, warning=FALSE, fig.cap="repositioned legend"}
+ggplot(CA_counties) + geom_sf(aes(fill=MED_AGE)) +
+  geom_sf_text(aes(label = NAME), col="white", size=1.5) +
+  theme(legend.position = c(0.8, 0.8)) +
+  labs(x="",y="")
+
+```
+
+**Map in ggplot2, zoomed into two counties** 
+
+We can zoom into two counties by accessing the extent of an existing spatial dataset using \index{st\_bbox()}`st_bbox()` \index{st\_make\_valid}(Figure \@ref(fig:mapsZoom)). 
+```{r mapsZoom, message=F, warning=F, fig.cap="Using bbox to zoom into two counties"}
+library(tidyverse); library(sf); library(igisci)
+census <- st_make_valid(BayAreaTracts) %>%
+   filter(CNTY_FIPS %in% c("013", "095"))
+TRI <- read_csv(ex("TRI/TRI_2017_CA.csv")) %>%
+  st_as_sf(coords = c("LONGITUDE", "LATITUDE"), crs=4326) %>%
+  st_join(census) %>%
+  filter(CNTY_FIPS %in% c("013", "095"),
+         (`5.1_FUGITIVE_AIR` + `5.2_STACK_AIR`) > 0)
+bnd = st_bbox(census)
+ggplot() +
+  geom_sf(data = BayAreaCounties, aes(fill = NAME)) +
+  geom_sf(data = census, color="grey40", fill = NA) +
+  geom_sf(data = TRI) +
+  coord_sf(xlim = c(bnd[1], bnd[3]), ylim = c(bnd[2], bnd[4])) +
+  labs(title="Census Tracts and TRI air-release sites") +
+  theme(legend.position = "none")
+
+```
+
+
+## tmap
+
+\index{tmap}The tmap package provides some nice cartographic capabilities. We'll use some of its capabilities, but for more thorough coverage, see the "Making maps with R" section of *Geocomputation with R* (@Geocomputation).
+
+The basic building block is `tm_shape(`data`)` followed by various layer elements, such as tm_fill(). The tm_shape function can work with either features or rasters.
+
+> Rasters can be displayed in ggplot2, however it's a bit clumsy so I prefer tmap when you're using rasters.
+
+```{r eval=F}
+library(spData); library(tmap)
+m <- tm_shape(world) + tm_fill() + tm_borders() 
+```
+
+But we'll make a better map (Figure \@ref(fig:tmapWorld)) by inserting a graticule before filling the polygons, then use `tm_layout` for some useful cartographic settings:  make the background light blue and avoid excessive inner margins.\index{tm\_layout}\index{tmap inner margins}\index{tmap background color}
+
+```{r tmapWorld, fig.cap="tmap of the world"}
+library(spData); library(tmap)
+bounds <- st_bbox(world)
+m <- tm_shape(world, bbox=bounds) + tm_graticules(col="seashell2") + 
+  tm_fill() + tm_borders() + tm_layout(bg.color="lightblue", inner.margins=0)
+m
+```
+> Experiment by leaving settings out to see the effect, and explore other options with `?tm_layout`, etc. The tmap package has a wealth of options, just a few of which we'll explore. For instance, we might want to use a different map projection than the default. 
+
+**Color by variable**
+
+As with plot and ggplot2, we can reference a variable to provide a range of colors for features we're plotting, such as coloring polygon fills to create a choropleth map (Figure \@ref(fig:tmapColorVar)). 
+
+```{r tmapColorVar, fig.cap="tmap fill colored by variable"}
+library(sf); library(igisci)
+library(tmap)
+tm_shape(st_make_valid(BayAreaTracts)) + tm_graticules(col="#e5e7e9") + tm_fill(col = "MED_AGE")
+```
+
+**tmap of sierraFeb with hillshade and point symbols**
+
+We'll use a raster hillshade as a basemap using `tm_raster`, zoom into an area with a bounding box (from `st_bbox`), include county boundaries with `tm_borders`, and color station points with temperatures with `tm_symbols` (Figure \@ref(fig:tmapMulti)).
+
+```{r include=F}
+library(tmap)
+library(sf)
+library(igisci)
+```
+
+```{r tmapMulti, message=F, warning=F, fig.cap="hillshade, borders and point symbols in tmap"}
+library(terra)
+tmap_mode("plot")
+tmap_options(max.categories = 8)
+sierra <- st_as_sf(sierraFeb, coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
+hillsh <- rast(ex("CA/ca_hillsh_WGS84.tif"))   # alt: hillsh <- raster(...)
+bounds <- st_bbox(sierra)
+tm_shape(hillsh,bbox=bounds)+
+  tm_graticules(col="azure2") +
+  tm_raster(palette="-Greys",legend.show=FALSE,n=10) + 
+  tm_shape(sierra) + 
+  tm_symbols(col="TEMPERATURE", palette=c("blue","red"), style="cont",n=8) +
+  tm_shape(st_make_valid(CA_counties)) + tm_borders() + 
+  tm_legend() + 
+  tm_layout(legend.position=c("RIGHT","TOP"))
+
+```
+
+**Color (rgb) basemap**
+
+\index{basemap, rgb}Earlier we looked at creating a basemap using `maptiles`. These are also supported in tmap using the `tm_rgb` (Figure \@ref(fig:tmapBasemap2states)).  Note that here the graticule is covered by the raster tiles, as it was by polygons earlier. We could have put it after the basemap tiles, but it doesn't look good, but works ok just showing on the edges. 
+
+```{r tmapBasemap2states, fig.cap="Two western states with a basemap in tmap"}
+library(tmap); library(maptiles)
+# The following gets the raster that covers the extent of CA & NV [twostates]
+calnevaBase <- get_tiles(twostates, provider="OpenTopoMap")# g
+tm_shape(calnevaBase) + tm_graticules() + tm_rgb()  +
+  tm_shape(twostates) + tm_borders(lwd=3)
+```
+
+## Interactive Maps
+
+\index{interactive maps}The word "static" in "static maps" isn't something you would have heard in a cartography class thirty years ago, since essentially *all* maps then were static. Very important in designing maps was, and still is, considering your audience and their perception of symbology.
+
+-   Figure-to-ground relationships assume "ground" is a white piece of paper (or possibly a standard white background in a pdf), so good cartographic color schemes tend to range from light for low values to dark for high values.
+-   Scale is fixed, and there are no "tools" for changing scale, so a lot of attention must be paid to providing scale information.
+-   Similarly, without the ability to see the map at different scales, inset maps are often needed to provide context.
+
+Interactive maps change the game in having tools for changing scale and *always* being "printed" on a computer or device where the color of the background isn't necessarily white. We are increasingly used to using interactive maps on our phones or other devices, and often get frustrated not being able to zoom into a static map. However, as we'll see, there are trade-offs in that interactive maps don't provide the same level of control on symbology for what we want to put on the map, but instead depend a lot on basemaps for much of the cartographic design, generally limiting the symbology of data being mapped on top of it.
+
+### Leaflet
+
+\index{leaflet}We'll come back to tmap to look at its interactive option, but we should start with a very brief look at the package that it uses when you choose interactive mode: **leaflet**. The R leaflet library itself translates to *Javascript* and its **Leaflet** library, which was designed to support "mobile-friendly interactive maps" (<https://leafletjs.com>). We'll also look at another R package that translates to leaflet: **mapview**.
+
+Interactive maps tend to focus on using basemaps for most of the cartographic design work, and quite a few are available. The only code required to display the basemap is `addTiles()`, which will display the default `OpenStreetMap` in the area where you provide any features, typically with `addMarkers()`. This default basemap is pretty good to use for general purposes, especially in urban areas where OpenStreetMap contributors (including a lot of former students I think) have provided a lot of data.
+
+You can specify additional choices using `addProviderTiles()`, and use a layers control with the choices provided as `baseGroups`. You have access to all of the basemap provider names with the vector `providers`, and to see what they look like in your area, explore <http://leaflet-extras.github.io/leaflet-providers/preview/index.html>, where you can zoom into an area of interest and select the base map to see how it would look in a given zoom (Figure \@ref(fig:mapsLeafletSFSU)). 
+
+
+```{r, eval=F}
+library(leaflet)
+leaflet() %>%
+  addTiles(group="OpenStreetMap") %>%
+  addProviderTiles("OpenTopoMap",group="OpenTopoMap") %>%
+  addProviderTiles("Esri.NatGeoWorldMap",group="Esri.NatGeoWorldMap") %>%
+  addProviderTiles("Esri.WorldImagery",group="Esri.WorldImagery") %>%
+  addMarkers(lng=-122.4756, lat=37.72222,
+             popup="Institute for Geographic Information Science, SFSU") %>%
+  addLayersControl(
+    baseGroups = c("OpenStreetMap","OpenTopoMap",
+                   "Esri.WorldImagery","Esri.NatGeoWorldMap"))
+```
+```{r mapsLeafletSFSU, echo=F, fig.cap="Leaflet map showing the location of the SFSU Institute for Geographic Information Science with choices of basemaps"}
+if (knitr::is_latex_output()){
+  knitr::include_graphics(here::here("img","mapLeafletSFSU.png"))} else {
+  library(leaflet)
+  leaflet() %>%
+    addTiles(group="OpenStreetMap") %>%
+    addProviderTiles("OpenTopoMap",group="OpenTopoMap") %>%
+    addProviderTiles("Esri.NatGeoWorldMap",group="Esri.NatGeoWorldMap") %>%
+    addProviderTiles("Esri.WorldImagery",group="Esri.WorldImagery") %>%
+    addMarkers(lng=-122.4756, lat=37.72222,
+               popup="Institute for Geographic Information Science, SFSU") %>%
+    addLayersControl(
+      baseGroups = c("OpenStreetMap","OpenTopoMap",
+                     "Esri.WorldImagery","Esri.NatGeoWorldMap"))
+  }
+```
+
+With an interactive map, we do have the advantage of a good choice of base maps and the ability to resize and explore the map, but symbology is more limited, mostly just color and size, with only one variable in a legend. Note that interactive maps display in the Viewer window of RStudio or in R Markdown code output as you see in the html version of this book.
+
+For a lot more information on the leaflet package in R, see:
+
+-   <https://blog.rstudio.com/2015/06/24/leaflet-interactive-web-maps-with-r/>
+-   <https://github.com/rstudio/cheatsheets/blob/master/leaflet.pdf>
+
+### tmap (view mode)
+
+\index{tmap interactive view mode}You can change to an interactive mode with tmap by using `tmap_mode("view")` so you might think that you can do all the great things that `tmap` does in normal plot mode here, but as we've seen, interactive maps don't provide the same level of symbology. The view mode of tmap, like mapview, is just a wrapper around leaflet, so we'll focus on the latter. The key parameter needed is `tmap_mode`, which must be set to `"view"` to create an interactive map.
+
+```{r tmapInteractive, eval=knitr::is_html_output()}
+library(tmap); library(sf)
+tmap_mode("view")
+tmap_options(max.categories = 8)
+sierra <- st_as_sf(sierraFeb, coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
+bounds <- st_bbox(sierra)
+#sierraMap <- 
+tm_basemap(leaflet::providers$Esri.NatGeoWorldMap) +
+  tm_shape(sierra) + tm_symbols(col="TEMPERATURE",
+  palette=c("blue","red"), style="cont",n=8,size=0.2) +
+  tm_legend() + 
+  tm_layout(legend.position=c("RIGHT","TOP"))
+#sierraMap
+#tmap_leaflet(sierraMap)
+```
+
+One nice feature of tmap view mode (and mapview) is the ability to select the basemap interactively using the layers symbol. There are lots of basemap available with leaflet (and thus with tmap view). To explore them, see <http://leaflet-extras.github.io/leaflet-providers/preview/index.html> but recognize that not all of these will work everywhere; many are highly localized or may only work at certain scales.
+
+The following map using tmap could presumably be coded in leaflet, but tmap makes it a lot easier. We'll use it to demonstrate picking the basemap, which really can help in communicating our data with context (Figure \@ref(fig:tmapBaseMaps)).
+
+```{r message=F, warning=F, results="hide"}
+library(sf); library(tmap); library(igisci)
+tmap_mode = "view"
+tmap_options(basemaps=c(Topo="OpenTopoMap", Imagery = "Esri.WorldImagery",
+                        NatGeo="Esri.NatGeoWorldMap"))
+soilCO2 <- st_read(ex("marbles/co2july95.shp"))
+geology <- st_read(ex("marbles/geology.shp"))
+```
+```{r eval=F}
+mblCO2map <- tm_basemap() +
+  tm_shape(geology) + tm_fill(col="CLASS", alpha=0.5) +
+  tm_shape(soilCO2) + tm_symbols(col="CO2_",
+  palette="viridis", style="cont",n=8,size=0.6) +
+  tm_legend() + 
+  tm_layout(legend.position=c("RIGHT","TOP")) 
+mblCO2map
+```
+
+```{r tmapBaseMaps, echo=F,fig.cap="View (interactive) mode of tmap with selection of basemaps"}
+if (knitr::is_latex_output()) {
+  knitr::include_graphics(here::here("img","tMapBaseMaps.png"))} else {
+  mblCO2map <- tm_basemap() +
+    tm_shape(geology) + tm_fill(col="CLASS", alpha=0.5) +
+    tm_shape(soilCO2) + tm_symbols(col="CO2_",
+    palette="viridis", style="cont",n=8,size=0.6) +
+    tm_legend() + 
+    tm_layout(legend.position=c("RIGHT","TOP")) 
+  mblCO2map
+}
+```
+
+### Interactive mapping of individual penguins abstracted from a big dataset
+
+\index{big data abstraction}In a study of spatial foraging patterns by Adélie penguins (*Pygoscelis adeliae*), @Ballard2019 collected data over five austral summer seasons (parts of December and January in 2005-06, 2006-07, 2007-08, 2008-09, 2012-13) period using SPLASH tags that combine Argos satellite tracking with a time-depth recorder, with 11,192 observations. The 24 SPLASH tags were re-used over the period of the project with a total of 162 individual breeding penguins, each active over a single season. 
+
+Our code takes advantage of the abstraction capabilities of base R and `dplyr` to select an individual penguin from the large data set and prepare its variables for useful display. Then the interactive mode of tmap works well for visualizing the penguin data -- both the cloud of all observations and the focused individual -- since we can zoom in to see the locations in context, and basemaps can be chosen. The `tmap` code colors the individual penguin's locations based on a decimal day derived from day and time. While interactive view is more limited in options, it does at least support a legend and title (Figure \@ref(fig:mapsPenguins)).
+
+```{r echo=F}
+set.seed(28)
+```
+```{r warning=F, message=F}
+library(sf); library(tmap); library(tidyverse); library(igisci)
+sat_table <- read_csv(ex("penguins/sat_table_splash.csv"))
+obs <- st_as_sf(filter(sat_table,include==1), coords=c("lon","lat"), crs=4326)
+uniq_ids <- unique(obs$uniq_id) # uniq_id identifies an individual penguin
+onebird <- obs %>%
+  filter(uniq_id==uniq_ids[sample.int(length(uniq_ids), size=1)]) %>%
+  mutate(decimalDay = as.numeric(day) + as.numeric(hour)/24)
+```
+```{r eval=F}
+tmap_mode = "view"
+tmap_options(basemaps=c(Terrain = "Esri.WorldTerrain",
+                        Imagery = "Esri.WorldImagery", 
+                        OceanBasemap = "Esri.OceanBasemap", 
+                        Topo="OpenTopoMap",
+                        Ortho="GeoportailFrance.orthos"))
+penguinMap <- tm_basemap() +
+  tm_shape(obs) + tm_symbols(col="gray", size=0.01, alpha=0.5) + 
+  tm_shape(onebird) + tm_symbols(col="decimalDay",
+  palette="viridis", style="cont",n=8,size=0.6) +
+  tm_legend() + 
+  tm_layout() 
+tmap_leaflet(penguinMap)
+```
+```{r mapsPenguins, echo=F, fig.cap=paste0("Observations of Adélie penguin migration from a 5-season study of a large colony at Ross Island in the SW Ross Sea, Antarctica; and an individual -- ",unique(onebird$uniq_id)," -- from season ",unique(onebird$season),". Data source: Ballard et al. (2019). Fine-scale oceanographic features characterizing successful Adélie penguin foraging in the SW Ross Sea. Marine Ecology Progress Series 608:263-277.")}
+if (knitr::is_latex_output()) {
+  knitr::include_graphics(here::here("img","mapsPenguins.png"))} else {
+  tmap_mode = "view"
+  tmap_options(basemaps=c(Terrain = "Esri.WorldTerrain",
+                          Imagery = "Esri.WorldImagery", 
+                          OceanBasemap = "Esri.OceanBasemap", 
+                          Topo="OpenTopoMap",
+                          Ortho="GeoportailFrance.orthos"))
+  penguinMap <- tm_basemap() +
+    tm_shape(obs) + tm_symbols(col="gray", size=0.01, alpha=0.5) + 
+    tm_shape(onebird) + tm_symbols(col="decimalDay",
+    palette="viridis", style="cont",n=8,size=0.6) +
+    tm_legend() + 
+    tm_layout() 
+  tmap_leaflet(penguinMap)
+  }
+```
+
+> **Some final thoughts on maps and plotting/viewing packages**: There's a lot more to creating maps from spatial data, but we need to look at spatial analysis to create some products that we might want to create maps from. In the next chapter, in addition to looking at spatial analysis methods we'll also continue our exploration of map design, ranging from very simple exploratory outputs to more carefully designed products for sharing with others.
+
+\pagebreak
+
+
+### Exercise project preparation
+
+For the exercises, you might want to create a new RStudio project, and name it "Spatial". We're going to use this for data we create and new data we want to bring in. We'll still be reading in data from the data package, but working in this project we'll be getting used to (a) working with our own data and (b) storing data to be used for later projects. Once we've created the project, we'll want to create a `data` folder to store data in. The code below includes this folder creation.
+
+> Go ahead and just run these bits that build the western states data and save it as a shapefile in a data folder. If you have time, figure out what it's all doing, and refer to https://bookdown.org/igisc/EnvDataSci/spatial.html for more information.
+
+```{r}
+library(tidyverse); library(sf)
+CO <- st_polygon(list(rbind(c(-109,41),c(-102,41),c(-102,37),c(-109,37),c(-109,41))))
+WY <- st_polygon(list(rbind(c(-111,45),c(-104,45),c(-104,41),c(-111,41),c(-111,45))))
+UT <- st_polygon(list(rbind(c(-114,42),c(-111,42),c(-111,41),c(-109,41),c(-109,37),
+                            c(-114,37),c(-114,42))))
+AZ <- st_polygon(list(rbind(c(-114,37),c(-109,37),c(-109,31.3),c(-111,31.3),
+  c(-114.8,32.5),c(-114.6,32.7),c(-114.1,34.3),c(-114.5,35),
+  c(-114.5,36),c(-114,36),c(-114,37))))
+NM <- st_polygon(list(rbind(c(-109,37),c(-103,37),c(-103,32),c(-106.6,32),
+  c(-106.5,31.8),c(-108.2,31.8),c(-108.2,31.3),c(-109,31.3),c(-109,37))))
+CA <- st_polygon(list(rbind(c(-124,42),c(-120,42),c(-120,39),c(-114.5,35),
+  c(-114.1,34.3),c(-114.6,32.7),c(-117,32.5),c(-118.5,34),c(-120.5,34.5),
+  c(-122,36.5),c(-121.8,36.8),c(-122,37),c(-122.4,37.3),c(-122.5,37.8),
+  c(-123,38),c(-123.7,39),c(-124,40),c(-124.4,40.5),c(-124,41),c(-124,42))))
+NV <- st_polygon(list(rbind(c(-120,42),c(-114,42),c(-114,36),c(-114.5,36),
+  c(-114.5,35),c(-120,39),c(-120,42))))
+OR <- st_polygon(list(rbind(c(-124,42),c(-124.5,43),
+  c(-124,46),c(-123,46),c(-122.7,45.5),c(-119,46),c(-117,46),
+  c(-116.5,45.5),c(-117.2,44.5),c(-117,44),
+  c(-117,42),c(-120,42),c(-124,42))))
+WA <- st_polygon(list(rbind(c(-124,46),c(-124.8,48.4),c(-123,48),
+  c(-123,49),c(-117,49),
+  c(-117,46),c(-119,46),c(-122.7,45.5),c(-123,46),c(-124,46))))
+ID <- st_polygon(list(rbind(c(-117,49),
+  c(-116,49),c(-116,48),c(-114.4,46.5),c(-114.4,45.5),
+  c(-114,45.6),c(-113,44.5),c(-111,44.5),
+  c(-111,42),c(-114,42),c(-117,42),
+  c(-117,44),c(-117.2,44.5),c(-116.5,45.5),
+  c(-117,46),c(-117,49))))
+MT <- st_polygon(list(rbind(c(-116,49),c(-104,49),
+  c(-104,45),c(-111,45),
+  c(-111,44.5),c(-113,44.5),c(-114,45.6),c(-114.4,45.5),
+  c(-114.4,46.5),c(-116,48),c(-116,49))))
+sfcWestStates <- st_sfc(CO,WY,UT,AZ,NM,CA,NV,OR,WA,ID,MT, crs=4326)
+attributes <- bind_rows(c(name="Colorado", abb="CO", area=269837, pop=5758736),
+                        c(name="Wyoming", abb="WY", area=253600, pop=578759),
+                        c(name="Utah", abb="UT", area=84899, pop=3205958),
+                        c(name="Arizona", abb="AZ", area=295234, pop=7278717),
+                        c(name="New Mexico", abb="NM", area=314917, pop=2096829),
+                        c(name="California", abb="CA", area=423970, pop=39368078),
+                        c(name="Nevada", abb="NV", area=286382, pop=3080156),
+                        c(name="Oregon", abb="OR", area=254806,pop=4237256),
+                        c(name="Washington", abb="WA", area=184827,pop=7705281),
+                        c(name="Idaho", abb="ID", area=216443,pop=1839106),
+                        c(name="Montana", abb="MT", area=380800,pop=1085407)) %>%
+  mutate(area=as.numeric(area),pop=as.numeric(pop))
+W_States <- st_sf(attributes, geometry = sfcWestStates)
+dirname <- "data"
+if (!dir.exists(dirname)) {
+  dir.create(dirname)
+}
+```
+## Exercises: Spatial Data and Maps
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+:::{.exercise}
+Create a map of W_States using ggplot, filling polygons with `pop`, using a scale_fill_gradient setting with a high of `"#1a5276"` and a low of `"#d4e6f1"` (hex color values), and use the `aes()` setting of `geom_sf_text()` to put labels in the states from the `name` variable.
+:::
+```{r}
+ggplot(W_States) + geom_sf(aes(fill=pop)) + scale_fill_gradient(high = "#1a5276", low = "#d4e6f1") + geom_sf_text(aes(label = name))
+```
+
+:::{.exercise}
+Store the W_States as a shape file in the data folder with st_write. (Look up how to use st_write with ?st_write -- it's pretty simple.) Note that this will fail if it already exists, so include the parameter `delete_layer = TRUE`.
+:::
+
+```{r}
+st_write(W_States, "data/W_States.shp", delete_layer = T)
+```
+
+:::{.exercise}
+**Highest Peaks**: Create a tibble for the highest peaks in the western states, with the following names, elevations in m, longitude and latitude, use st_as_sf to create an sf from it, and add them to that map. Then use st_write again to store these as "data/peaks.shp" again using `delete_layer = TRUE`:
+
+-   Wheeler Peak, 4011, -105.4, 36.5
+-   Mt. Whitney, 4421, -118.2, 36.5
+-   Boundary Peak, 4007, -118.35, 37.9
+-   Kings Peak, 4120, -110.3, 40.8
+-   Gannett Peak, 4209, -109, 43.2
+-   Mt. Elbert, 4401, -106.4, 39.1
+-   Humphreys Peak, 3852, -111.7, 35.4
+-   Mt. Hood, 3428, -121.7, 45.4
+-   Mt. Rainier, 4392, -121.8, 46.9
+-   Borah Peak, 3859, -113.8, 44.1
+-   Granite Peak, 3903, -109.8, 45.1
+
+Note: the easiest way to do this is with the tribble function, starting with:
+
+    peaks <- tribble(
+      ~peak, ~elev, ~longitude, ~latitude,
+      "Wheeler Peak", 4011, -105.4, 36.5,
+
+:::
+```{r, results='hide'}
+peaks <- tribble(
+  ~peak, ~elev, ~longitude, ~latitude,
+  "Wheeler Peak", 4011, -105.4, 36.5,
+  "Mt. Whitney", 4421, -118.2, 36.5,
+  "Boundary Peak", 4007, -118.35, 37.9,
+  "Kings Peak", 4120, -110.3, 40.8,
+  "Gannett Peak", 4209, -109, 43.2,
+  "Mt. Elbert", 4401, -106.4, 39.1,
+  "Humphreys Peak", 3852, -111.7, 35.4,
+  "Mt. Hood", 3428, -121.7, 45.4,
+  "Mt. Rainier", 4392, -121.8, 46.9,
+  "Borah Peak", 3859, -113.8, 44.1,
+  "Granite Peak", 3903, -109.8, 45.1)
+peaksp <- st_as_sf(peaks, coords=c("longitude", "latitude"), crs=4326)
+st_write(peaksp, "data/peaks.shp", delete_layer = TRUE) 
+```
+
+```{r mapsHighestPeaksGoal, out.width="50%"}
+ggplot(W_States) + geom_sf(aes(fill=pop)) + geom_sf(data=peaksp) + geom_sf_label(data=peaksp, aes(label=peak))
+```
+
+:::{.exercise}
+**California freeways**. From the CA_counties and CAfreeways feature data in igisci, make a simple map in ggplot, with freeways colored red).
+:::
+```{r mapsCAfreewaysGoal}
+library(igisci)
+ggplot(CA_counties) + geom_sf() + geom_sf(data=CAfreeways, col="red")
+```
+
+
+:::{.exercise}
+After adding the terra library, create a raster from the built-in `volcano` matrix of elevations from Auckland's **Maunga Whau Volcano**, and use plot() to display it. We'd do more with that dataset, but we don't know what the cell size is.
+:::
+```{r mapsVolcanoGoal}
+library(terra)
+v <- rast(volcano)
+plot(v)
+```
+
+:::{.exercise}
+**Western States tmap**: Use tmap to create a map from the W_States (polygons) and peaksp (points) data we created earlier. Include a basemap using the maptiles package. Hints: you'll want to use tm_text with text set to "peak" to label the points, along with the parameter `auto.placement=TRUE`. Use this as an opportunity to test the shape files you've written earlier by using `st_read` with those shape files. Experiment with `tm_symbol` sizes, and `just`, `xmod`, and `ymod` settings with `tm_text`.  
+:::
+```{r results="hide"}
+library(tmap); library(maptiles)
+tmap_mode("plot")
+wstates <- st_read("data/W_States.shp")
+peaks <- st_read("data/peaks.shp")
+westUSbase <- get_tiles(wstates)
+tm_shape(westUSbase) + tm_graticules() + tm_rgb() +
+  tm_shape(wstates) + tm_borders(lwd=2, col="darkgray") +
+  tm_shape(peaks) + tm_symbols(col = "red", size=0.3) + 
+  tm_text(text="peak", just="left", xmod=0.3, ymod=0.3, size=0.7)
+  
+```
+
+```{r goalWStmap, out.width="50%", fig.cap="Goal: Western States tmap"}
+knitr::include_graphics(here::here("img","goal_SpatialDataMaps10.png"))
+```
+
+:::{.exercise}
+**tmap view mode**.  Also using the western states data, create a tmap in view mode, but don't use the state borders since the basemap will have them. Just before adding shapes, set the basemap to `leaflet::providers\$Esri.NatGeoWorldMapEsri.NatGeoWorldMap`, then continue to the peaks after the `+` to see the peaks on a National Geographic basemap (Figure \@ref(fig:mapViewModeGoal))
+:::
+
+```{r}
+library(tmap); library(sf)
+W_States <- st_read("data/W_States.shp")
+peaksp <- st_read("data/peaks.shp")
+tmap_mode("view")
+tm_basemap(leaflet::providers$Esri.NatGeoWorldMap) +
+tm_shape(peaksp) + tm_symbols(col = "red") + tm_text(text="peak", auto.placement=T)
+```
+
+```{r mapViewModeGoal,include=T,eval=T,echo=F,out.width='50%',fig.align="center",fig.cap="tmap View mode (goal)"}
+knitr::include_graphics(here::here("img","mapViewModeGoal.png"))
+```
+

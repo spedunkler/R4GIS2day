@@ -1,0 +1,470 @@
+---
+title: "seabird_leftovers"
+author: "Jerry Davis"
+date: "12/26/2021"
+output: html_document
+---
+
+
+
+```{r}
+AOI <- vect(st_union(st_buffer(transJul2006, 10000)))
+transJul2006v <- vect(transJul2006)
+vorJul2006 <- crop(voronoi(transJul2006v), AOI)
+r <- rast(vorJul2006, res=1000)
+vr <- rasterize(vorJul2006, r, "avg_sal")
+library(gstat)
+d <- data.frame(geom(transJul2006v)[,c("x", "y")], as.data.frame(transJul2006v))
+gs <- gstat(formula=avg_dep~1, locations=~x+y, data=d, nmax=5, set=list(idp = 0))
+nn <- interpolate(r, gs, debug.level=0)
+nnmsk <- mask(nn, vr)
+plot(nnmsk,1)
+```
+
+
+
+
+### Start with libraries, function and and reading data
+
+```{r message=F, results='hide'}
+library(igisci); library(sf); library(terra); library(tidyverse); 
+library(tmap); library(maptiles); library(readxl) 
+RMSE <- function(observed, predicted) {
+  sqrt(mean((predicted - observed)^2, na.rm=TRUE))
+}
+AOI <- vect(st_union(st_buffer(transJul2006, 10000)))
+transJul2006v <- vect(transJul2006)
+vorJul2006 <- crop(voronoi(transJul2006v), AOI)
+```
+
+```{r}
+plot(AOI)
+plotRGB(oceanBase)
+polys(AOI)
+points(transJul2006v)
+```
+
+### Temperature analysis
+
+
+#### Voronoi and creation of raster template
+
+We're going to develop a simple prediction using Voronoi polygons (@Voronoi), so we'll create these and see what they look like with the original data points also displayed. Note that we'll need to convert to S4 objects using `vect()`:
+
+```{r fig.cap="Temperature by Voronoi polygons"}
+plot(vorJul2006, "avg_tem")
+```
+
+Rasterize the voronoi polygons
+
+```{r fig.cap="Temperature July 2006"}
+r <- rast(vorJul2006, res=1000)  # builds a blank raster of the same extent
+vr <- rasterize(vorJul2006, r, "avg_tem")
+plot(vr)
+plotRGB(oceanBase)
+plot(vr, add=T, alpha=0.5)
+```
+
+```{r}
+# n-fold cross validation
+n <- 20
+set.seed(5132015)
+kf <- sample(1:n, size = nrow(transJul2006v), replace=TRUE) # get random numbers 
+   # between 1 and 5 to same size as input data points SpatVector sierraV 
+rmse <- rep(NA, n) # blank set of 5 NAs
+for (k in 1:n) {
+  test <- transJul2006v[kf == k, ]  # split into 5 sets of points, 4/5 going to training set,
+  train <- transJul2006v[kf != k, ] #  and 1/5 to test, including all of the variables
+  v <- voronoi(train)
+  v
+  test
+  p <- terra::extract(v, test) # extract values from v (built from training data) at test locations
+  rmse[k] <- RMSE(test$avg_tem, p$avg_tem)
+}
+rmse
+mean(rmse)
+
+```
+
+**Relative performance** is derived with respect to null model we created above that simply compared the input values with the mean.
+
+```{r}
+null <- RMSE(mean(transJul2006v$avg_tem), transJul2006v$avg_tem)
+null
+perf <- 1 - (mean(rmse) / null)
+round(perf, 3)
+
+```
+
+### Salinity
+
+
+#### Voronoi and creation of raster template
+
+We're going to develop a simple prediction using Voronoi polygons (@Voronoi), so we'll create these and see what they look like with the original data points also displayed. Note that we'll need to convert to S4 objects using `vect()`:
+
+```{r fig.cap="Salinity mapped by Voronoi polygon"}
+plot(vorJul2006, "avg_sal")
+```
+
+Rasterize the voronoi polygons
+
+```{r}
+vr <- rasterize(vorJul2006, r, "avg_sal")
+plot(vr)
+plotRGB(oceanBase)
+plot(vr, add=T, alpha=0.5)
+```
+
+```{r}
+# n-fold cross validation
+n <- 20
+set.seed(5132015)
+kf <- sample(1:n, size = nrow(transJul2006v), replace=TRUE) # get random numbers 
+   # between 1 and 5 to same size as input data points SpatVector sierraV 
+rmse <- rep(NA, n) # blank set of 5 NAs
+for (k in 1:n) {
+  test <- transJul2006v[kf == k, ]  # split into 5 sets of points, 4/5 going to training set,
+  train <- transJul2006v[kf != k, ] #  and 1/5 to test, including all of the variables
+  v <- voronoi(train)
+  v
+  test
+  p <- terra::extract(v, test) # extract values from v (built from training data) at test locations
+  rmse[k] <- RMSE(test$avg_sal, p$avg_sal)
+}
+rmse
+mean(rmse)
+```
+
+**Relative performance:**
+
+```{r}
+null <- RMSE(mean(transJul2006v$avg_sal), transJul2006v$avg_sal)
+null
+perf <- 1 - (mean(rmse) / null)
+round(perf, 3)
+
+
+```
+
+
+### Fluorescence analysis
+
+```{r fig.cap="Fluorescence mapped by Voronoi polygon"}
+plot(vorJul2006, "avg_fluo")
+```
+
+Rasterize the voronoi polygons
+
+```{r}
+vr <- rasterize(vorJul2006, r, "avg_fluo")
+plot(vr)
+plotRGB(oceanBase)
+plot(vr, add=T, alpha=0.5)
+```
+
+**Cross validation and relative performance**
+
+```{r}
+# n-fold cross validation
+n <- 20
+set.seed(5132015)
+kf <- sample(1:n, size = nrow(transJul2006v), replace=TRUE) # get random numbers 
+   # between 1 and 5 to same size as input data points SpatVector sierraV 
+rmse <- rep(NA, n) # blank set of 5 NAs
+for (k in 1:n) {
+  test <- transJul2006v[kf == k, ]  # split into 5 sets of points, 4/5 going to training set,
+  train <- transJul2006v[kf != k, ] #  and 1/5 to test, including all of the variables
+  v <- voronoi(train)
+  v
+  test
+  p <- terra::extract(v, test) # extract values from v (built from training data) at test locations
+  rmse[k] <- RMSE(test$avg_fluo, p$avg_fluo)
+}
+null <- RMSE(mean(transJul2006v$avg_fluo), transJul2006v$avg_fluo)
+perf <- 1 - (mean(rmse) / null)
+round(perf, 3)
+
+```
+
+
+### Depth analysis
+
+```{r fig.cap="Depth mapped by Voronoi polygon"}
+plot(vorJul2006, "avg_dep")
+```
+
+Rasterize the voronoi polygons
+
+```{r}
+r <- rast(vorJul2006, res=1000)  # builds a blank raster of the same extent
+vr <- rasterize(vorJul2006, r, "avg_dep")
+plot(vr)
+plotRGB(oceanBase)
+plot(vr, add=T, alpha=0.5)
+```
+
+**Cross validation and relative performance**
+
+```{r}
+# n-fold cross validation
+n <- 5
+set.seed(5132015)
+kf <- sample(1:n, size = nrow(transJul2006v), replace=TRUE) # get random numbers 
+   # between 1 and 5 to same size as input data points SpatVector sierraV 
+rmse <- rep(NA, n) # blank set of 5 NAs
+for (k in 1:n) {
+  test <- transJul2006v[kf == k, ]  # split into 5 sets of points, 4/5 going to training set,
+  train <- transJul2006v[kf != k, ] #  and 1/5 to test, including all of the variables
+  v <- voronoi(train)
+  v
+  test
+  p <- terra::extract(v, test) # extract values from v (built from training data) at test locations
+  rmse[k] <- RMSE(test$avg_dep, p$avg_dep)
+}
+#rmse
+#mean(rmse)
+null <- RMSE(mean(transJul2006v$avg_dep), transJul2006v$avg_dep)
+#null
+perf <- 1 - (mean(rmse) / null)
+round(perf, 3)
+```
+
+
+#### Nearest neighbor interpolation
+
+The previous assignment of data to Voronoi polygons can be considered to be a nearest neighbor interpolation where only one neighbor is used, but we can instead use multiple neighbors. In this case we'll use up to 5 (`nmax=5`). Presumably setting `idp` to zero makes it a nearest neighbor, along with the `nmax` setting.
+
+```{r fig.cap="Nearest neighbor interpolation of depth"}
+library(gstat)
+d <- data.frame(geom(transJul2006v)[,c("x", "y")], as.data.frame(transJul2006v))
+head(d)
+gs <- gstat(formula=avg_dep~1, locations=~x+y, data=d, nmax=5, set=list(idp = 0))
+nn <- interpolate(r, gs, debug.level=0)
+nnmsk <- mask(nn, vr)
+plot(nnmsk,1)
+```
+
+#### IDW
+
+The previous nearest neighbor interpolation is the same as an inverse-distance weighted interpolator with a limited nmax (default is Inf) and a power of zero.  We'll try a slightly higher power:  0.5.
+
+```{r fig.cap="IDW interpolation, power=0.5"}
+library(gstat)
+gs <- gstat(formula=avg_dep~1, locations=~x+y, data=d, set=list(idp=0.5))
+idw <- interpolate(r, gs, debug.level=0)
+idwr <- mask(idw, vr)
+plot(idwr, 1)
+```
+
+
+#### Trend surfaces/ polynomials
+
+This seems to just require providing the appropriate formula and either going globally (defaults of `nmax=Inf` and default `idp=0`) or locally (`nmax=10` seems to work).
+
+```{r fig.cap="Linear trend, depth"}
+library(gstat)
+gs <- gstat(formula=avg_dep~x+y, locations=~x+y, data=d)
+trend1 <- interpolate(r, gs, debug.level=0)
+trend1r <- mask(trend1, vr)
+plot(trend1r, 1)
+```
+
+2nd and higher order trends don't work -- can't use x^2, x*y, etc., might work like interactions.
+
+```{r fig.cap="2nd order trend, depth"}
+library(gstat)
+gs <- gstat(formula=avg_dep~x+y+x^2+y^2+x*y, locations=~x+y, data=d)
+trend2 <- interpolate(r, gs, debug.level=0)
+trend2r <- mask(trend2, vr)
+#plot(trend2r, 1)
+```
+
+```{r fig.cap="3rd order trend, depth"}
+library(gstat)
+gs <- gstat(formula=avg_dep~x+y+x^2+y^2+x*y+x^3+y^3+x^2*y+x*y^2, locations=~x+y, data=d)
+trend3 <- interpolate(r, gs, debug.level=0)
+trend3r <- mask(trend3, vr)
+#plot(trend3r, 1)
+```
+
+Local polynomial, 3rd order trend, similarly doesn't work
+
+```{r fig.cap="local polynomial, 3rd order, depth"}
+library(gstat)
+gs <- gstat(formula=avg_dep~x+y+x^2+y^2+x*y+x^3+y^3+x^2*y+x*y^2, locations=~x+y, nmax=10, data=d)
+local3 <- interpolate(r, gs, debug.level=0)
+local3r <- mask(local3, vr)
+#plot(local3r, 1)
+```
+
+
+#### Kriging 
+
+```{r}
+gs <- gstat(formula=avg_dep~1, locations=~x+y, data=d)
+v <- variogram(gs)
+v
+plot(v)
+```
+
+```{r}
+fve <- fit.variogram(v, vgm(psill=20000, model="Exp", range=50000))
+plot(variogramLine(fve,50000), type="l", ylim=c(0,100000))
+points(v[,2:3], pch=20, col='red')
+```
+
+```{r}
+k <- gstat(formula=avg_dep~1, locations=~x+y, data=d, model=fve)
+# predicted values
+kp <- interpolate(r, k, debug.level=0)
+ok <- mask(kp, vr)
+names(ok) <- c('prediction', 'variance')
+plot(ok)
+```
+
+### kriging for Salinity
+
+```{r}
+gs <- gstat(formula=avg_sal~1, locations=~x+y, data=d)
+v <- variogram(gs)
+v
+plot(v)
+```
+
+```{r}
+fve <- fit.variogram(v, vgm(psill=10, model="Exp", nugget=8, range=50000))
+plot(variogramLine(fve,50000), type="l", ylim=c(0,20))
+points(v[,2:3], pch=20, col='red')
+
+#fve <- fit.variogram(v, vgm(psill=20000, model="Exp", range=50000))
+#plot(variogramLine(fve,50000), type="l", ylim=c(0,100000))
+
+
+
+```
+
+### kriging for Temperature
+
+
+```{r}
+gs <- gstat(formula=avg_tem~1, locations=~x+y, data=d)
+v <- variogram(gs)
+v
+plot(v)
+```
+
+```{r}
+fve <- fit.variogram(v, vgm(psill=2.5, model="Exp", nugget=1.5, range=50000))
+plot(variogramLine(fve,50000), type="l", ylim=c(0,5))
+points(v[,2:3], pch=20, col='red')
+```
+
+### kriging for Fluorescence
+
+```{r}
+gs <- gstat(formula=avg_fluo~1, locations=~x+y, data=d)
+v <- variogram(gs)
+v
+plot(v)
+```
+
+```{r}
+fve <- fit.variogram(v, vgm(psill=0.12, model="Sph", range=50000))
+plot(variogramLine(fve,50000), type="l", ylim=c(0,0.12))
+points(v[,2:3], pch=20, col='red')
+```
+
+```{r fig.cap="Ordinary Kriging, Fluorescence"}
+k <- gstat(formula=avg_fluo~1, locations=~x+y, data=dfilt, model=fve)
+kp <- interpolate(r, k, debug.level=0)
+ok <- mask(kp, vr)
+names(ok) <- c('prediction', 'variance')
+plot(ok)
+```
+
+## Michael Dorman methods using stars for raster
+
+Trying the above, which relied on terra, with a method that relies on stars for raster.
+
+Based on http://132.72.155.230:3838/r/spatial-interpolation-of-point-data.html
+
+```{r}
+library(sf)
+transects <- st_read(ex("SFmarine/transects.shp"))
+transJul2006 <- transects %>% filter(month==7 & year==2006)
+Sanctuaries <- st_read(ex("SFmarine/Sanctuaries.shp"))
+cordell_bank <- st_read(ex("SFmarine/cordell_bank.shp"))
+isobath_200 <- st_read(ex("SFmarine/isobath_200.shp"))
+sefi <- st_read(ex("SFmarine/sefi.shp"))
+
+```
+
+Build a raster template.
+
+```{r}
+library(stars)
+AOI <- st_union(st_buffer(transJul2006, 10000))
+AOIras <- st_rasterize(AOI, dx=1000, dy=1000)
+r <- rast(vorJul2006, res=1000) 
+
+
+
+vorJul2006 <- crop(voronoi(transJul2006), AOI)
+
+```
+
+
+
+
+## other stuff
+
+
+```{r}
+fve <- fit.variogram(v, vgm("Sph"))
+plot(variogramLine(fve), type="l")
+points(v[,2:3], pch=20, col='red')
+```
+
+
+
+
+IDW
+
+```{r}
+library(gstat); library(terra)
+transJuly <- transects %>% filter(month==7)
+gs <- gstat(formula=avg_tem~1, data=transJuly, set=list(idp=2))
+idw <- interpolate(templateRas, gs)
+vr <- rasterize(transJuly, templateRas, "avg_tem")
+idwr <- mask(idw, vr)
+plot(idwr, 1)
+```
+
+
+```{r}
+gs <- gstat(formula=avg_tem~1, data=transJuly)
+fve <- fit.variogram(v, vgm(psill=171, model="Exp", range=100000))
+plot(variogramLine(fve), type="l", maxdist = 100000)#, ylim=c(5,17))
+points(v[,2:3], pch=20, col='red')
+fve <- fit.variogram(v, vgm("Sph"))
+plot(variogramLine(fve), type="l")
+points(v[,2:3], pch=20, col='red')
+```
+
+## glm model with poisson family
+
+```{r}
+library(tidyverse); library(sf); library(igisci)
+transects <- st_read(ex("SFmarine/transects.shp"))
+transJul2006 <- transects %>% filter(month==7 & year==2006 & avg_tem>0 & avg_sal>0 & avg_fluo>0)
+summary(glm(bfal~avg_tem+avg_sal+avg_fluo+avg_dep+dist_land+dist_isla+dist_200m+dist_cord, data=transJul2006,family=poisson))
+summary(transJul2006)
+
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(transJuly) + tm_dots(col="avg_dep")
+```
+

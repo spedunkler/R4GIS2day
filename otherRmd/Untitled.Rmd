@@ -1,0 +1,18 @@
+---
+title: "EDS 604/704"
+author: "name"
+date: "date"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Environmental Data Science, Fall 2021
+
+```{r}
+#put your code in here
+```
+
+##Knit when you're finished and include the knitted html document with this Rmd.

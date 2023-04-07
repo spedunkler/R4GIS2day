@@ -1,0 +1,273 @@
+---
+title: "Introduction to Environmental Data Science"
+author: "Jerry Davis, SFSU Institute for Geographic Information Science"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+documentclass: book
+bibliography:
+- book.bib
+- packages.bib
+biblio-style: apalike
+link-citations: yes
+geometry: margin=1in
+github-repo: iGISc/EnvDataSci
+description: Background, methods and exercises for using R for environmental data
+  science.  The focus is on applying the R language and various libraries for data
+  abstraction, transformation, data analysis, spatial data/mapping, statistical modeling,
+  and time series, applied to environmental research. Applies exploratory data analysis
+  methods and tidyverse approaches in R, and includes contributed chapters presenting
+  research applications, with associated data and code packages.
+site: bookdown::bookdown_site
+header-includes: \AtBeginDocument{\frontmatter}
+---
+
+![book cover](img/eaRth_anna_trimmed.png)
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = "75%")
+```
+
+\mainmatter
+
+# Environmental Data Science: Background, Goals & Data {#chapter00.chapter_section .intro_section}
+
+## Environmental Data Science
+
+Data science is *an interdisciplinary field that uses scientific methods, processes, algorithms and systems to extract knowledge and insights from noisy, structured and unstructured data* (Wikipedia). A data science approach is especially suitable for applications involving large and complex data sets, and environmental data is a prime example, with rapidly growing collections from automated sensors in space and time domains.
+
+*Environmental* data science is data science applied to environmental science research. In general data science can be seen as being the intersection of math & statistics, computer science/IT, and some research domain, and in this case it's environmental (Figure \@ref(fig:indexEDS)).
+
+```{r indexEDS, fig.align = 'center', out.width = "75%", fig.cap = "Environmental Data Science", echo=F}
+knitr::include_graphics(here::here("img", "EnvDataSci50pct.png"))
+```
+
+## Environmental Data and Methods
+
+The methods needed for environmental research can include many things since environmental *data* can include many things, including environmental measurements in space and time domains.
+
+-   Data analysis and transformation methods
+
+    -   importing and other methods to create rectangular data frames
+    -   reorganization and creation of fields
+    -   filtering observations
+    -   data joins
+    -   stratified statistical summaries
+    -   reorganizing data, including pivots
+
+-   Visualization
+
+    -   graphics
+
+-   Spatial analysis & maps
+
+    -   vector and raster spatial analysis, e.g.
+
+        -   spatial joins
+        -   distance analysis
+        -   overlay analysis
+
+    -   spatial statistics
+
+    -   static and interactive maps
+
+    -   image analysis
+
+-   Statistical Modeling
+
+    -   physical models
+    -   statistical modeling
+    -   models based on machine learning algorithms
+
+-   Time series
+
+    -   analyzing and visualizing long-term data records (e.g. for climate change)
+    -   analyzing and visualizing high-frequency data from loggers
+
+## Goals of this book
+
+While the methodological reach of data science is very great, and the spectrum of environmental data is as well, our goal is to lay the foundation and provide useful introductory methods in the areas outlined above, but as a "live" book be able to extend into more advanced methods and provide a growing suite of research examples with associated data sets. We'll briefly explore some data mining methods that can be applied to so-called "big data" challenges, but our focus is on **exploratory data analysis** in general, applied to environmental data in *space and time domains*. For clarity in understanding the methods and products, much of our data will be in fact be quite *small*, derived from field-based environmental measurements where we can best understand how the data were collected, but these methods extend to much larger data sets. It will primarily be in the areas of time-series and imagery, where automated data capture and machine learning are employed, when we'll dip our toes into big data.
+
+### Some definitions:
+
+**Machine Learning**: *building a model using training data in order to make predictions without being explicitly programmed to do so.* Related to artificial intelligence methods. Used in:
+
+-   Image & imagery classification, including computer vision methods
+-   Statistical modeling
+-   Data mining
+
+**Data Mining**: *discovering patterns in large data sets*
+
+-   databases collected by government agencies
+-   imagery data from satellite, aerial (including drone) sensors
+-   time-series data from long-term data records or high-frequency data loggers
+-   methods may involve machine learning / artificial intelligence / computer vision
+
+**Big data**: *data having a size or complexity too big to be processed effectively by traditional software*
+
+-   data with many cases or dimensions (including imagery)
+-   many applications in environmental science due to the great expansion of automated environmental data capture in space and time domains
+-   big data challenges exist across the spectrum of the environmental research process, from data capture, storage, sharing, visualization, querying
+
+**Exploratory data analysis**: *procedures for analyzing data, techniques for interpreting the results of such procedures, ways of structuring data to make its analysis easier*
+
+-   summarizing
+-   restructuring
+-   visualization
+
+## Exploratory Data Analysis
+
+Just as *exploration* is a part of what *National Geographic* has long covered, it's an important part of geographic and environmental science research. **Exploratory Data Analysis** is exploration applied to data, and has grown as an alternative approach to traditional statistical analysis. This basic approach perhaps dates back to the work of Thomas Bayes in the 18th century, but @tukey1961 may have best articulated the basic goals of this approach in defining the "data analysis" methods he was promoting: "Procedures for analyzing data, techniques for interpreting the results of such procedures, ways of planning the gathering of data to make its analysis easier, more precise or more accurate, and all the machinery and results of (mathematical) statistics which apply to analyzing data." Some years later @tukey1977 followed up with *Exploratory Data Analysis*
+
+-   EDA is an approach to analyzing data via summaries and graphics. The key word is *exploratory*.
+
+    -   In contrast to *confirmatory* statistics, though that is also useful
+
+-   Objectives:
+
+    -   suggest hypotheses
+    -   assess assumptions on which inference will be based
+    -   select appropriate statistical tools
+    -   guide further data collection
+
+-   Led to the development of S, then R
+
+    -   Built on clear design and extensive, clear graphics, one key to exploring data
+    -   S Developed at Bell Labs by John Chambers, 1976
+    -   R is a language and environment for statistical computing and graphics. It is a GNU project which is similar to the S language and environment which was developed at Bell Laboratories (formerly AT&T, now Lucent Technologies) by Chambers and colleagues.
+
+## Software and data we'll need
+
+First, we're going to use the R language. It's not the only way to do data analysis -- Python is another important data science language -- but R with its statistical foundation is an important language for academic research, especially in the environmental sciences. 
+
+```{r echo=F, message=F}
+paste0("This book was produced in RStudio using ",R.version.string)
+```
+
+For a start, you'll need to have R and RStudio installed, and you'll need to install various packages to support specific chapters and sections:
+
+-   In the **Abstraction** and **Transformation** chapters, we'll start making a lot of use of *tidyverse* packages such as:
+
+    -   ggplot2
+    -   dplyr
+    -   stringr
+    -   tidyr
+    -   lubridate
+
+-   In the **Visualization** chapter, we'll mostly use ggplot2, but also some specialized visualization packages such as:
+
+    -   GGally
+
+-   In the **Spatial** section we'll add some spatial data, analysis and mapping packages:
+
+    -   sf
+    -   terra
+    -   tmap
+    -   leaflet
+
+-   In the **Statistics & Modeling** section, no additional packages are needed, as we can rely on base R's rich statistical methods and ggplot2's visualization.
+
+-   In the **Time Series** section, we'll find a few other packages handy:
+
+    -   xts (Extensible Time Series)
+    -   forecast (for a few useful functions like a moving average)
+
+And there will certainly be other packages we'll explore along the way, so you'll want to install them when you first need them, which will typically be when you first see a `library()` call in the code, or possibly when a function is prefaced with the package name, something like `dplyr::select()`. One of the earliest we'll need is the suite of packages in the "tidyverse" (@wickham2017tidyverse), which includes some of the ones listed above: `ggplot2`, `dplyr`, `stringr`, and `tidyr`. You can install these individually, or all at once with:
+
+    install.packages("tidyverse")
+
+This is usually done from the console in RStudio and not included in an R script or markdown document, since you don't want to be installing the package over and over again. You can also respond to a prompt from RStudio when it detects a package called in a script you open that you don't have installed.
+
+From time to time, you'll want to update your installed packages, and that usually happens when something doesn't work and maybe the dependencies of one package on another gets broken with a change in a package. Fortunately, in the R world, especially at the main repository at CRAN, there's a lot of effort put into making sure packages work together, so usually there are no surprises if you're using the most current versions. *Note that there can be exceptions to this, and occasionally new package versions will create problems with other packages due to inter-package dependencies and the introduction of functions with names that duplicate other packages. The packages installed for this book were current as of that version of R, but new package versions may occasionally introduce errors.*
+
+Once installed, you can access all of its functions and data by adding a library call, like:
+
+```{r message=F}
+library(dplyr)
+```
+
+which you *will* want to include in your code; or to provide access to multiple libraries in the tidyverse, you can use `library(tidyverse)`. Alternatively, if you're only using maybe one function out of an installed package, you can call that function with the `::` separator, like `dplyr::select()`. This method has another advantage in avoiding problems with duplicate names -- and for instance we'll generally call `dplyr::select()` this way.
+
+### Data
+
+We'll be using data from various sources, including data on CRAN like the code packages above which you install the same way -- so use `install.packages("palmerpenguins")`.
+
+We've also created a repository on GitHub that includes data we've developed in the Institute for Geographic Information Science (iGISc) at SFSU, and you'll need to install that package a slightly different way.
+
+```{r fig.align = 'center', out.width = "33%", fig.cap = "Institute for Geographic Information Science, SFSU", echo=F}
+knitr::include_graphics(here::here("img", "IGIScSFSU281200.png"))
+```
+
+GitHub packages require a bit more work on the user's part since we need to first install `remotes`[^index-2], then use that to install the GitHub data package:
+
+[^index-2]: Note: you can also use `devtools` instead of `remotes` if you have that installed. They do the same thing; `remotes` is a subset of `devtools`. If you see a message about Rtools, you can ignore it since that is only needed for building tools from C++ and things like that.
+
+```{r eval=F}
+install.packages("remotes")
+remotes::install_github("iGISc/igisci")
+```
+
+Then you can access it just like other built-in data by including:
+
+```{r message=F}
+library(igisci)
+```
+
+To see what's in it, you'll see the various datasets listed in:
+
+    data(package="igisci")
+
+For instance, Figure \@ref(fig:indexCAcounties) is a map of California counties using the CA_counties `sf` feature data. We'll be looking at the `sf` (Simple Features) package later in the Spatial section of the book, but seeing `library(sf)`, this is one place where you'd need to have installed another package, with `install.packages("sf")`.
+
+```{r indexCAcounties, fig.cap="California counties simple features data in igisci package"}
+library(tidyverse); library(igisci); library(sf)
+ggplot(data=CA_counties) + geom_sf()
+```
+
+The package datasets can be used directly as `sf` data or data frames. And similarly to functions, you can access the (previously installed) data set by prefacing with `igisci::` this way, without having to load the library. This might be useful in a one-off operation:
+
+```{r}
+mean(igisci::sierraFeb$LATITUDE)
+```
+
+Raw data such as `.csv` files can also be read from the `extdata` folder that is installed on your computer when you install the package, using code such as:
+
+    csvPath <- system.file("extdata","TRI/TRI_1987_BaySites.csv", package="igisci")
+    TRI87 <- read_csv(csvPath)
+
+or something similar for shapefiles, such as:
+
+    shpPath <- system.file("extdata","marbles/trails.shp", package="igisci")
+    trails <- st_read(shpPath)
+
+And we'll find that including most of the above arcanity in a function will help. We'll look at functions later, but here's a function that we'll use a lot for setting up reading data from the extdata folder:
+
+    ex <- function(dta){system.file("extdata",dta,package="igisci")}
+
+And this `ex()`function is needed so often that it's installed in the `igisci` package, so if you have `library(igisci)` in effect, you can just use it like this:
+
+    trails <- st_read(ex("marbles/trails.shp"))
+
+------------------------------------------------------------------------
+
+## Acknowledgements
+
+This book was immensely aided by extensive testing by students in San Francisco State's GEOG 604/704 *Environmental Data Science* class, including specific methodological contributions from some of the students and a contributed Data Wrangling exercise by one from the first offering (Josh von Nonn) in Chapter 5. Thanks to Andrew Oliphant, Chair of the Department of Geography & Environment, for supporting the class (as long as I included time series) and then came through with some great data sets from eddy covariance flux towers as well as guest lectures. Many thanks to Adam Davis, Institute of Transportation Studies, UC Davis, for suggestions on R spatial methods and package development, among other things in the R world. Thanks to Anna Studwell, recent Associate Director of the IGISc, for ideas on statistical modeling of birds and marine environments, and the nice water-color for the front cover. And a lot of thanks goes to Nancy Wilkinson, who put up with my obsessing on R coding puzzles at all hours and pretended to be impressed with what you can do with R Markdown.
+
+------------------------------------------------------------------------
+
+*Introduction to Environmental Data Science* © Jerry D. Davis, ORCID 0000-0002-5369-1197, Institute for Geographic Information Science, San Francisco State University, all rights reserved.
+
+------------------------------------------------------------------------
+
+<a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img src="https://i.creativecommons.org/l/by/4.0/88x31.png" alt="Creative Commons License" style="border-width:0"/></a><br />[Introduction to Environmental Data Science]{xmlns:dct="http://purl.org/dc/terms/" property="dct:title"} by <a xmlns:cc="http://creativecommons.org/ns#" href="http://gis.sfsu.edu" property="cc:attributionName" rel="cc:attributionURL">Jerry Davis</a> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+
+```{js, echo = FALSE}
+title=document.getElementById('header');
+title.innerHTML = '<img src="img/eaRth_anna_trimmed.png" alt="Test Image">' + title.innerHTML
+```
+
+Cover art [^index-1] by Anna Studwell
+
+[^index-1]: *"Dandelion fluff -- Ephemeral stalk sheds seeds to the universe"* -- Anna Studwell

@@ -1,0 +1,16 @@
+---
+  # To run as Shiny, remove the comment # marks for the output and runtime lines below,
+  # save, and a Run Document button will replace the Knit button
+output: html_document
+runtime: shiny
+---
+
+
+
+**`fileInput()`**
+```{r Shiny1.07.fileInputPrint}
+fileInput(inputId="file", label="Select CSV file:", accept=".csv")
+dpath <- renderText(input$file$datapath)
+renderTable(read.csv(dpath))
+#renderTable(read.csv(input$file))
+```

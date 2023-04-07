@@ -1,0 +1,163 @@
+# Image Processing & Classfication Using Terra
+
+## First trying the methods in rspatial.org/terra
+```{r}
+if (!file.exists("data/rs/samples.rds")) {
+    download.file("https://biogeo.ucdavis.edu/data/rspatial/rs.zip", dest = "data/rs.zip")
+    unzip("data/rs.zip", exdir="data")
+}
+```
+
+```{r}
+library(terra)
+b2 <- rast('data/rs/LC08_044034_20170614_B2.tif')
+# Green
+b3 <- rast('data/rs/LC08_044034_20170614_B3.tif')
+# Red
+b4 <- rast('data/rs/LC08_044034_20170614_B4.tif')
+# Near Infrared (NIR)
+b5 <- rast('data/rs/LC08_044034_20170614_B5.tif')
+```
+```{r}
+s = c(b5, b4, b3)
+```
+
+Create a multi-layer SpatRaster using the filenames
+
+```{r}
+filenames <- paste0('data/rs/LC08_044034_20170614_B', 1:11, ".tif")
+landsat <- rast(filenames)
+landsat
+```
+
+```{r}
+par(mfrow=c(2,2))
+```
+
+
+```{r}
+plot(b2, main="Blue", col=gray(0:100/100))
+plot(b3, main = "Green", col = gray(0:100 / 100))
+plot(b4, main = "Red", col = gray(0:100 / 100))
+plot(b5, main = "NIR", col = gray(0:100 / 100))
+```
+
+### Create 3-band images as RGB
+
+```{r}
+landsatRGB <- c(b4, b3, b2)
+plotRGB(landsatRGB, stretch = "lin")
+```
+
+```{r}
+landsatFalseColor <- c(b5, b4, b3)
+plotRGB(landsatFalseColor, stretch="lin")
+```
+
+### Subsetting
+
+We won't need the last four bands, so we'll subset.  Then we'll rename them.
+
+```{r}
+landsat <- subset(landsat, 1:7)
+names(landsat) <- c('ultra-blue', 'blue','green','red','NIR','SWIR1','SWIR2')
+```
+
+### Spatial subset or crop
+
+```{r}
+e <- ext(624387,635752,4200047,4210939)
+landsatcrop <- crop(landsat,e)
+lsRGB <- subset(landsatcrop,4:2)
+plotRGB(lsRGB,stretch="lin")
+```
+```{r}
+lsFalse <- subset(landsatcrop,5:3)
+plotRGB(lsFalse,stretch='lin')
+```
+
+### Saving results
+
+```{r}
+writeRaster(landsatcrop, filename="cropped-landsat.tif",overwrite=T)
+```
+
+### Relation between bands
+
+```{r}
+pairs(landsatcrop[[1:2]], main="Ultra-blue versus Blue")
+pairs(landsatcrop[[4:5]], main="Red vs NIR")
+```
+
+### Extract pixel values
+
+```{r}
+# polygons with LULC info
+samp <- vect(readRDS('data/rs/lcsamples.rds'))
+# generate 50 point samples from the polygons
+set.seed(555)
+ptsamp <- spatSample(samp, 50, 'regular')
+# Use xy coordinates to extract spectral values 
+df <- extract(landsat, ptsamp)
+head(df)
+
+```
+
+### Spectral profiles
+
+```{r}
+ms <- aggregate(df[,-1], list(ptsamp$class), mean)
+# instead of the first column, use row names
+rownames(ms) <- ms[,1]
+ms <- ms[,-1]
+```
+
+```{r}
+LULCcolors <- c('darkred','yellow','burlywood','cyan','blue')
+# create matrix from df
+ms <- as.matrix(ms)
+# First create an emply plot
+plot(0, ylim=c(0,0.6), xlim=c(1,7),type='n',xlab="Bands",ylab="Reflectance")
+# Add the different classes
+for (i in 1:nrow(ms)){
+  lines(ms[i,],type='l',lwd=3,lty=1,col=LULCcolors[i])
+}
+title(main="Spectral Signatures", font.main=2)
+legend('topleft',rownames(ms),cex=0.8,col=LULCcolors,lty=1,lwd=3,bty='n')
+
+```
+## Basic mathematical operations
+
+pixel-wise calculations like map algebra.  We'll use it to do indices.
+
+```{r}
+library(terra)
+filenames <- paste0('data/rs/LC08_044034_20170614_B', 1:11, ".tif")
+landsat <- rast(filenames)
+landsatRGB <- landsat[[c(4,3,3)]]
+landsatFCC <- landsat[[c(5,4,3)]]
+```
+
+### Vegetation indices
+
+```{r}
+vi <- function(img, k, i) {
+  bk <- img[[k]]
+  bi <- img[[i]]
+  vi <- (bk - bi)/(bk + bi)
+  return(vi)
+}
+```
+```{r}
+ndvi <- vi(landsat, 5, 4)
+plot(ndvi, col=rev(terrain.colors(10)), main='NDVI')
+```
+
+### Histogram
+
+```{r}
+hist(ndvi, main='NDVI values', xlab='NDVI',ylab='Frequency',
+     col='wheat',xlim=c(-0.5,1),breaks=30,xaxt='n')
+axis(side=1,at=seq(-0.6,1,0.2), labels=seq(-0.6,1,0.2))
+```
+

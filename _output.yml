@@ -1,0 +1,32 @@
+bookdown::gitbook:
+  css: style.css
+  config:
+    toc:
+      collapse: section
+      before: |
+        <li><img src="img/R4GIS_296.png"></li>
+      after: |
+        <li><a href="https://github.com/rstudio/bookdown" target="blank">Published with bookdown</a></li>
+    book_filename: "envdatasci"
+    toc_depth: 4
+    download: false
+bookdown::pdf_book:
+  includes:
+    in_header: latex/preamble.tex # for CRC
+    # in_header: latex/preambleNOTCRC.tex # for student version
+    before_body: latex/before_body.tex # for CRC only
+    after_body: latex/after_body.tex # for CRC and student version
+  keep_tex: true
+  dev: "cairo_pdf"
+  latex_engine: xelatex
+  template: null
+  pandoc_args: --top-level-division=chapter
+  toc_depth: 3
+  toc_unnumbered: false
+  toc_appendix: true
+  quote_footer: ["\\VA{", "}{}"]
+  highlight_bw: true
+
+
+
+

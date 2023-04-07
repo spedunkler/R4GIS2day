@@ -1,0 +1,10 @@
+---
+output: html_document
+runtime: shiny
+---
+
+```{r}
+numericInput(inputId="n", "sample size", value = 25)
+renderPrint(print(input$n))
+```
+

@@ -1,0 +1,229 @@
+---
+title: "classificationSentinel"
+author: "Jerry Davis"
+date: '2022-07-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Supervised Classification (Sentinel 2)
+
+Since we have field observations of vegetation/land cover types, we might see if we can use these to train a classification model.
+
+### 1. Set up libraries and data paths
+
+**Spring**
+```{r}
+library(terra); library(stringr)
+imgFolderSpring <- "S2B_MSIL2A_20210603T184919_N0300_R113_T10TGK_20210603T213609.SAFE\\GRANULE\\L2A_T10TGK_A022161_20210603T185928"
+img10mFolderSpring <- paste0("data/RCVimagery/sentinel/",imgFolderSpring,"\\IMG_DATA\\R10m")
+imgDateTimeSpring <- str_sub(imgFolderSpring,12,26)
+imgDateTimeSpring
+```
+**Summer**
+```{r}
+imgFolderSummer <- "S2A_MSIL2A_20210628T184921_N0300_R113_T10TGK_20210628T230915.SAFE\\GRANULE\\L2A_T10TGK_A031427_20210628T185628"
+img10mFolderSummer <- paste0("data/RCVimagery/sentinel/",imgFolderSummer,"\\IMG_DATA\\R10m")
+imgDateTimeSummer <- str_sub(imgFolderSummer,12,26)
+imgDateTimeSummer
+```
+### 2. Extract bands
+```{r}
+sentinelBands <- paste0("B",c("02","03","04","08"))
+sentinelFilesSpring <- paste0(img10mFolderSpring,"/T10TGK_",imgDateTimeSpring,"_",sentinelBands,"_10m.jp2")
+sentinelSpring <- rast(sentinelFilesSpring)
+names(sentinelSpring) <- paste0("spring",sentinelBands)
+
+sentinelFilesSummer <- paste0(img10mFolderSummer,"/T10TGK_",imgDateTimeSummer,"_",sentinelBands,"_10m.jp2")
+sentinelSummer <- rast(sentinelFilesSummer)
+names(sentinelSummer) <- paste0("summer",sentinelBands)
+```
+
+### 3. Crop to RCV extent
+```{r}
+RCVext <- ext(715680,725040,4419120,4429980)
+sentRCVspring <- crop(sentinelSpring,RCVext)
+sentRCVsummer <- crop(sentinelSummer,RCVext)
+```
+
+### 4a. Create vegetation indices
+```{r}
+blueSp <- sentRCVspring$springB02
+greenSp <- sentRCVspring$springB03
+redSp <- sentRCVspring$springB04
+nirSp <- sentRCVspring$springB08
+ndgiSp <- (0.616 * greenSp + 0.384 * nirSp - redSp)/(0.616 * greenSp + 0.384 * nirSp + redSp)
+blueSu <- sentRCVspring$summerB02
+greenSu <- sentRCVsummer$summerB03
+redSu <- sentRCVsummer$summerB04
+nirSu <- sentRCVsummer$summerB08
+ndgiSu <- (0.616 * greenSu + 0.384 * nirSu - redSu)/(0.616 * greenSu + 0.384 * nirSu + redSu)
+```
+
+### 4b. Create a 10-band stack from both images
+```{r}
+sentRCV <- c(sentRCVspring$springB02,sentRCVspring$springB03,
+             sentRCVspring$springB04,NDGIspring,NDGIsummer)
+names(sentRCV) <- c("sprB02","sprB03","sprB04","sprNDGI","sumNDGI")
+```
+
+### 5. Read in training data
+```{r}
+# polygons with LULC info
+sampRCV <- vect("data/RCVimagery/train_polys7.shp")
+# generate 50 point samples from the polygons
+#ptsampRCV <- centroids(sampRCV)
+ptsampRCV <- spatSample(sampRCV, 1000, method="random")
+# ptsImgTrain <- vect(paste0(dtaPath,"/train_points.shp"))
+plot(ptsampRCV, "class")
+```
+
+### 6. Identify LULC classes and assign colors
+```{r}
+LULCclass <- c("forest","hydric","mesic","rocky","water","willow","xeric")
+classdf <- data.frame(value=1:length(LULCclass),names=LULCclass)
+#classdf
+#LULCcolors <- c("springgreen4","cyan","gold","black","dodgerblue","greenyellow","red")
+LULCcolors <- c("green4","cyan","gold","black","royalblue","greenyellow","red")
+```
+
+### 7. Extract pixel values as dfRCV
+
+```{r}
+dfRCV <- extract(sentRCV, ptsampRCV)[,-1] # REMOVE ID
+head(dfRCV,n=10)
+
+```
+
+```{r}
+sampdataRCV <- data.frame(class = ptsampRCV$class, dfRCV)
+```
+
+
+
+### 8. Training the CART model
+```{r}
+library(rpart)
+# Train the model
+cartmodel <- rpart(as.factor(class)~., data = sampdataRCV, method = 'class', minsplit = 5)
+#print(cartmodel)
+```
+
+```{r}
+library(rpart.plot)
+rpart.plot(cartmodel, fallen.leaves=F)
+```
+
+
+
+
+
+### 9. Prediction using the CART model
+
+```{r}
+classified <- predict(sentRCV, cartmodel, na.rm = TRUE)
+classified
+plot(classified)
+```
+
+*Note the ranges of values, each extending to values approaching 1.0.* If we had used the 9-category training set described earlier, we would find some categories with very low scores, such that they will never dominate a pixel. We can be sure from the above that we'll get all categories used in the final output, and this will avoid potential problems in validation.
+
+Now we'll make a single SpatRaster showing the vegetation/land cover with the highest probability.
+
+```{r}
+lulc <- which.max(classified)
+lulc
+cls <- names(classified)
+df <- data.frame(id = 1:length(cls), class=cls)
+levels(lulc) <- df
+lulc
+```
+
+```{r fig.height=6.5, fig.width=6}
+plot(lulc, col=LULCcolors)
+```
+
+
+### 10. Validating the model
+
+An important part of the imagery classification process is *validation*, where we look at how well the model works. The way this is done is pretty easy to understand, and requires have *testing* data in addition to the *training* data mentioned above. Testing data can be created in a variety of ways, commonly through field observations but also with finer resolution imagery like drone imagery. Since this is also how we *train* our data, often you're selecting some for training, and a separate set for testing.
+
+In *cross-validation*, we use one set of data and run the model multiple times, and for each validating with a part of the data not used for training the model.  In *k-fold cross validation*, k represents the number of groups and number of models. The k value can be up to the number of observations, but you do need to consider processing time, and you may not get much more reliable assessments with using all of the observations.  We'll use 10 folds.
+
+```{r}
+set.seed(42)
+k <- 5 # number of folds
+j <- sample(rep(1:k, each = round(nrow(sampdataRCV))/k))
+table(j)
+```
+
+```{r}
+x <- list()
+for (k in 1:5) {
+    train <- sampdataRCV[j!= k, ]
+    test <- sampdataRCV[j == k, ]
+    cart <- rpart(as.factor(class)~., data=train, method = 'class',
+                  minsplit = 5)
+    pclass <- predict(cart, test, na.rm = TRUE)
+    # assign class to maximum probablity
+    pclass <- apply(pclass, 1, which.max)
+    # create a data.frame using the reference and prediction
+    x[[k]] <- cbind(test$class, as.integer(pclass))
+}
+```
+
+
+```{r}
+y <- do.call(rbind, x)
+y <- data.frame(y)
+colnames(y) <- c('observed', 'predicted')
+# confusion matrix
+conmat <- table(y)
+# change the name of the classes
+colnames(conmat) <- sampdataRCV$classnames
+rownames(conmat) <- sampdataRCV$classnames
+print(conmat)
+```
+
+```{r}
+## ----overallaccuracy----------------------------------------------------------
+# number of total cases/samples
+n <- sum(conmat)
+n
+
+# number of correctly classified cases per class
+diag <- diag(conmat)
+
+# Overall Accuracy
+OA <- sum(diag) / n
+OA
+
+
+## ----kappa--------------------------------------------------------------------
+# observed (true) cases per class
+rowsums <- apply(conmat, 1, sum)
+p <- rowsums / n
+
+# predicted cases per class
+colsums <- apply(conmat, 2, sum)
+q <- colsums / n
+
+expAccuracy <- sum(p*q)
+kappa <- (OA - expAccuracy) / (1 - expAccuracy)
+kappa
+
+
+## ----User/Producer accuracy---------------------------------------------------
+# Producer accuracy
+PA <- diag / colsums
+
+# User accuracy
+UA <- diag / rowsums
+
+outAcc <- data.frame(producerAccuracy = PA, userAccuracy = UA)
+outAcc
+
+```

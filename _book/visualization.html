@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Chapter 4 Visualization | Introduction to R for GIS</title>
+  <meta name="description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  <meta name="generator" content="bookdown 0.28 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="Chapter 4 Visualization | Introduction to R for GIS" />
+  <meta property="og:type" content="book" />
+  
+  <meta property="og:description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  <meta name="github-repo" content="iGISc/EnvDataSci" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Chapter 4 Visualization | Introduction to R for GIS" />
+  
+  <meta name="twitter:description" content="Background, methods and exercises for using R for environmental data science. The focus is on applying the R language and various libraries for data abstraction, transformation, data analysis, spatial data/mapping, statistical modeling, and time series, applied to environmental research. Applies exploratory data analysis methods and tidyverse approaches in R, and includes contributed chapters presenting research applications, with associated data and code packages." />
+  
+
+<meta name="author" content="Jerry Davis, SFSU Institute for Geographic Information Science" />
+
+
+<meta name="date" content="2023-04-06" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="abstraction.html"/>
+<link rel="next" href="spatial.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+<script src="libs/htmlwidgets-1.5.4/htmlwidgets.js"></script>
+<link href="libs/datatables-css-0.0.0/datatables-crosstalk.css" rel="stylesheet" />
+<script src="libs/datatables-binding-0.27/datatables.js"></script>
+<link href="libs/dt-core-1.12.1/css/jquery.dataTables.min.css" rel="stylesheet" />
+<link href="libs/dt-core-1.12.1/css/jquery.dataTables.extra.css" rel="stylesheet" />
+<script src="libs/dt-core-1.12.1/js/jquery.dataTables.min.js"></script>
+<link href="libs/crosstalk-1.2.0/css/crosstalk.min.css" rel="stylesheet" />
+<script src="libs/crosstalk-1.2.0/js/crosstalk.min.js"></script>
+<link href="libs/leaflet-1.3.1/leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-1.3.1/leaflet.js"></script>
+<link href="libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet" />
+<script src="libs/proj4-2.6.2/proj4.min.js"></script>
+<script src="libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+<link href="libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-binding-2.1.1/leaflet.js"></script>
+<script src="libs/leaflet-providers-1.9.0/leaflet-providers_1.9.0.js"></script>
+<script src="libs/leaflet-providers-plugin-2.1.1/leaflet-providers-plugin.js"></script>
+<link href="libs/HomeButton-0.0.1/home-button.css" rel="stylesheet" />
+<script src="libs/HomeButton-0.0.1/home-button.js"></script>
+<script src="libs/HomeButton-0.0.1/easy-button-src.min.js"></script>
+<script src="libs/clipboard-0.0.1/setClipboardText.js"></script>
+<link href="libs/mapviewCSS-0.0.1/mapview-popup.css" rel="stylesheet" />
+<link href="libs/mapviewCSS-0.0.1/mapview.css" rel="stylesheet" />
+
+
+<style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><img src="img/R4GIS_296.png"></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Background, Goals and Data</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#r-gisc-and-goals-for-this-book"><i class="fa fa-check"></i><b>1.1</b> R, GISc, and Goals for this book</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#exploratory-data-analysis"><i class="fa fa-check"></i><b>1.2</b> Exploratory Data Analysis</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#software-and-data"><i class="fa fa-check"></i><b>1.3</b> Software and Data</a>
+<ul>
+<li class="chapter" data-level="1.3.1" data-path="index.html"><a href="index.html#data"><i class="fa fa-check"></i><b>1.3.1</b> Data</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="introduction.html"><a href="introduction.html"><i class="fa fa-check"></i><b>2</b> Introduction to R</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="introduction.html"><a href="introduction.html#data-objects"><i class="fa fa-check"></i><b>2.1</b> Data Objects</a>
+<ul>
+<li class="chapter" data-level="2.1.1" data-path="introduction.html"><a href="introduction.html#scalars-and-assignment"><i class="fa fa-check"></i><b>2.1.1</b> Scalars and assignment</a></li>
+</ul></li>
+<li class="chapter" data-level="2.2" data-path="introduction.html"><a href="introduction.html#functions"><i class="fa fa-check"></i><b>2.2</b> Functions</a></li>
+<li class="chapter" data-level="2.3" data-path="introduction.html"><a href="introduction.html#expressions"><i class="fa fa-check"></i><b>2.3</b> Expressions and Statements</a></li>
+<li class="chapter" data-level="2.4" data-path="introduction.html"><a href="introduction.html#class"><i class="fa fa-check"></i><b>2.4</b> Data Classes</a>
+<ul>
+<li class="chapter" data-level="2.4.1" data-path="introduction.html"><a href="introduction.html#integers"><i class="fa fa-check"></i><b>2.4.1</b> Integers</a></li>
+</ul></li>
+<li class="chapter" data-level="2.5" data-path="introduction.html"><a href="introduction.html#rectangular-data"><i class="fa fa-check"></i><b>2.5</b> Rectangular Data</a></li>
+<li class="chapter" data-level="2.6" data-path="introduction.html"><a href="introduction.html#data-structures-in-r"><i class="fa fa-check"></i><b>2.6</b> Data Structures in R</a>
+<ul>
+<li class="chapter" data-level="2.6.1" data-path="introduction.html"><a href="introduction.html#vector"><i class="fa fa-check"></i><b>2.6.1</b> Vectors</a></li>
+<li class="chapter" data-level="2.6.2" data-path="introduction.html"><a href="introduction.html#list"><i class="fa fa-check"></i><b>2.6.2</b> Lists</a></li>
+<li class="chapter" data-level="2.6.3" data-path="introduction.html"><a href="introduction.html#matrix"><i class="fa fa-check"></i><b>2.6.3</b> Matrices</a></li>
+<li class="chapter" data-level="2.6.4" data-path="introduction.html"><a href="introduction.html#dataframes"><i class="fa fa-check"></i><b>2.6.4</b> Data frames</a></li>
+<li class="chapter" data-level="2.6.5" data-path="introduction.html"><a href="introduction.html#factors"><i class="fa fa-check"></i><b>2.6.5</b> Factors</a></li>
+</ul></li>
+<li class="chapter" data-level="2.7" data-path="introduction.html"><a href="introduction.html#accessors"><i class="fa fa-check"></i><b>2.7</b> Accessors and Subsetting</a>
+<ul>
+<li class="chapter" data-level="2.7.1" data-path="introduction.html"><a href="introduction.html#accessing-a-vector-from-a-data-frame"><i class="fa fa-check"></i><b>2.7.1</b> <code>$</code> Accessing a vector from a data frame</a></li>
+</ul></li>
+<li class="chapter" data-level="2.8" data-path="introduction.html"><a href="introduction.html#programming"><i class="fa fa-check"></i><b>2.8</b> Programming scripts in RStudio</a>
+<ul>
+<li class="chapter" data-level="2.8.1" data-path="introduction.html"><a href="introduction.html#apply"><i class="fa fa-check"></i><b>2.8.1</b> Apply functions</a></li>
+</ul></li>
+<li class="chapter" data-level="2.9" data-path="introduction.html"><a href="introduction.html#rstudio"><i class="fa fa-check"></i><b>2.9</b> RStudio projects</a>
+<ul>
+<li class="chapter" data-level="2.9.1" data-path="introduction.html"><a href="introduction.html#rmarkdown"><i class="fa fa-check"></i><b>2.9.1</b> R Markdown</a></li>
+</ul></li>
+<li class="chapter" data-level="2.10" data-path="introduction.html"><a href="introduction.html#exercises-introduction-to-r"><i class="fa fa-check"></i><b>2.10</b> Exercises: Introduction to R</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="abstraction.html"><a href="abstraction.html"><i class="fa fa-check"></i><b>3</b> Data Abstraction</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="abstraction.html"><a href="abstraction.html#tidyverse"><i class="fa fa-check"></i><b>3.1</b> The Tidyverse</a></li>
+<li class="chapter" data-level="3.2" data-path="abstraction.html"><a href="abstraction.html#tibbles"><i class="fa fa-check"></i><b>3.2</b> Tibbles</a>
+<ul>
+<li class="chapter" data-level="3.2.1" data-path="abstraction.html"><a href="abstraction.html#building-a-tibble-from-vectors"><i class="fa fa-check"></i><b>3.2.1</b> Building a tibble from vectors</a></li>
+<li class="chapter" data-level="3.2.2" data-path="abstraction.html"><a href="abstraction.html#tribble"><i class="fa fa-check"></i><b>3.2.2</b> tribble</a></li>
+<li class="chapter" data-level="3.2.3" data-path="abstraction.html"><a href="abstraction.html#csv"><i class="fa fa-check"></i><b>3.2.3</b> read_csv</a></li>
+</ul></li>
+<li class="chapter" data-level="3.3" data-path="abstraction.html"><a href="abstraction.html#summarizing-variable-distributions"><i class="fa fa-check"></i><b>3.3</b> Summarizing variable distributions</a>
+<ul>
+<li class="chapter" data-level="3.3.1" data-path="abstraction.html"><a href="abstraction.html#stratifying-variables-by-site-using-a-tukey-box-plot"><i class="fa fa-check"></i><b>3.3.1</b> Stratifying variables by site using a Tukey box plot</a></li>
+</ul></li>
+<li class="chapter" data-level="3.4" data-path="abstraction.html"><a href="abstraction.html#dplyr"><i class="fa fa-check"></i><b>3.4</b> Database operations with <code>dplyr</code></a>
+<ul>
+<li class="chapter" data-level="3.4.1" data-path="abstraction.html"><a href="abstraction.html#pipe"><i class="fa fa-check"></i><b>3.4.1</b> Select, mutate, and the pipe</a></li>
+<li class="chapter" data-level="3.4.2" data-path="abstraction.html"><a href="abstraction.html#filter"><i class="fa fa-check"></i><b>3.4.2</b> filter</a></li>
+<li class="chapter" data-level="3.4.3" data-path="abstraction.html"><a href="abstraction.html#writing-a-data-frame-to-a-csv"><i class="fa fa-check"></i><b>3.4.3</b> Writing a data frame to a csv</a></li>
+<li class="chapter" data-level="3.4.4" data-path="abstraction.html"><a href="abstraction.html#group-summary"><i class="fa fa-check"></i><b>3.4.4</b> Summarize by group</a></li>
+<li class="chapter" data-level="3.4.5" data-path="abstraction.html"><a href="abstraction.html#count"><i class="fa fa-check"></i><b>3.4.5</b> Count</a></li>
+<li class="chapter" data-level="3.4.6" data-path="abstraction.html"><a href="abstraction.html#sorting-after-summarizing"><i class="fa fa-check"></i><b>3.4.6</b> Sorting after summarizing</a></li>
+</ul></li>
+<li class="chapter" data-level="3.5" data-path="abstraction.html"><a href="abstraction.html#stringr"><i class="fa fa-check"></i><b>3.5</b> String abstraction</a></li>
+<li class="chapter" data-level="3.6" data-path="abstraction.html"><a href="abstraction.html#explicit"><i class="fa fa-check"></i><b>3.6</b> Calling functions explicitly with <code>::</code></a></li>
+<li class="chapter" data-level="3.7" data-path="abstraction.html"><a href="abstraction.html#exercises-data-abstraction"><i class="fa fa-check"></i><b>3.7</b> Exercises: Data Abstraction</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="visualization.html"><a href="visualization.html"><i class="fa fa-check"></i><b>4</b> Visualization</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="visualization.html"><a href="visualization.html#ggplot2"><i class="fa fa-check"></i><b>4.1</b> ggplot2</a></li>
+<li class="chapter" data-level="4.2" data-path="visualization.html"><a href="visualization.html#summary-statistical-graphics"><i class="fa fa-check"></i><b>4.2</b> Summary statistical graphics</a>
+<ul>
+<li class="chapter" data-level="4.2.1" data-path="visualization.html"><a href="visualization.html#plotting-one-variable"><i class="fa fa-check"></i><b>4.2.1</b> Plotting one variable</a></li>
+<li class="chapter" data-level="4.2.2" data-path="visualization.html"><a href="visualization.html#histogram"><i class="fa fa-check"></i><b>4.2.2</b> Histogram</a></li>
+<li class="chapter" data-level="4.2.3" data-path="visualization.html"><a href="visualization.html#other-statistical-graphics"><i class="fa fa-check"></i><b>4.2.3</b> Other statistical graphics</a></li>
+</ul></li>
+<li class="chapter" data-level="4.3" data-path="visualization.html"><a href="visualization.html#plotting-two-variables"><i class="fa fa-check"></i><b>4.3</b> Plotting Two Variables</a>
+<ul>
+<li class="chapter" data-level="4.3.1" data-path="visualization.html"><a href="visualization.html#color-systems"><i class="fa fa-check"></i><b>4.3.1</b> Color systems</a></li>
+</ul></li>
+<li class="chapter" data-level="4.4" data-path="visualization.html"><a href="visualization.html#exercises-visualization"><i class="fa fa-check"></i><b>4.4</b> Exercises: Visualization</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="spatial.html"><a href="spatial.html"><i class="fa fa-check"></i><b>5</b> Spatial Data and Maps</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="spatial.html"><a href="spatial.html#spatial-data"><i class="fa fa-check"></i><b>5.1</b> Spatial Data</a>
+<ul>
+<li class="chapter" data-level="5.1.1" data-path="spatial.html"><a href="spatial.html#simple-geometry-building-in-sf-and-terra"><i class="fa fa-check"></i><b>5.1.1</b> Simple geometry building in sf and terra</a></li>
+<li class="chapter" data-level="5.1.2" data-path="spatial.html"><a href="spatial.html#building-points-from-a-data-frame"><i class="fa fa-check"></i><b>5.1.2</b> Building points from a data frame</a></li>
+<li class="chapter" data-level="5.1.3" data-path="spatial.html"><a href="spatial.html#creating-features-from-shapefiles"><i class="fa fa-check"></i><b>5.1.3</b> Creating features from shapefiles</a></li>
+</ul></li>
+<li class="chapter" data-level="5.2" data-path="spatial.html"><a href="spatial.html#coordinate-referencing-systems"><i class="fa fa-check"></i><b>5.2</b> Coordinate Referencing Systems</a></li>
+<li class="chapter" data-level="5.3" data-path="spatial.html"><a href="spatial.html#creating-sf-data-from-data-frames"><i class="fa fa-check"></i><b>5.3</b> Creating sf Data from Data Frames</a></li>
+<li class="chapter" data-level="5.4" data-path="spatial.html"><a href="spatial.html#building-a-2-state-map-from-geometry"><i class="fa fa-check"></i><b>5.4</b> Building a 2-state map from geometry</a></li>
+<li class="chapter" data-level="5.5" data-path="spatial.html"><a href="spatial.html#using-maptiles-to-create-a-basemap"><i class="fa fa-check"></i><b>5.5</b> Using maptiles to create a basemap</a></li>
+<li class="chapter" data-level="5.6" data-path="spatial.html"><a href="spatial.html#raster-data"><i class="fa fa-check"></i><b>5.6</b> Raster data</a>
+<ul>
+<li class="chapter" data-level="5.6.1" data-path="spatial.html"><a href="spatial.html#building-rasters"><i class="fa fa-check"></i><b>5.6.1</b> Building rasters</a></li>
+<li class="chapter" data-level="5.6.2" data-path="spatial.html"><a href="spatial.html#vector-to-raster-conversion"><i class="fa fa-check"></i><b>5.6.2</b> Vector to raster conversion</a></li>
+</ul></li>
+<li class="chapter" data-level="5.7" data-path="spatial.html"><a href="spatial.html#ggplot2-for-maps"><i class="fa fa-check"></i><b>5.7</b> ggplot2 for Maps</a></li>
+<li class="chapter" data-level="5.8" data-path="spatial.html"><a href="spatial.html#tmap"><i class="fa fa-check"></i><b>5.8</b> tmap</a></li>
+<li class="chapter" data-level="5.9" data-path="spatial.html"><a href="spatial.html#interactive-maps"><i class="fa fa-check"></i><b>5.9</b> Interactive Maps</a>
+<ul>
+<li class="chapter" data-level="5.9.1" data-path="spatial.html"><a href="spatial.html#leaflet"><i class="fa fa-check"></i><b>5.9.1</b> Leaflet</a></li>
+<li class="chapter" data-level="5.9.2" data-path="spatial.html"><a href="spatial.html#tmap-view-mode"><i class="fa fa-check"></i><b>5.9.2</b> tmap (view mode)</a></li>
+<li class="chapter" data-level="5.9.3" data-path="spatial.html"><a href="spatial.html#interactive-mapping-of-individual-penguins-abstracted-from-a-big-dataset"><i class="fa fa-check"></i><b>5.9.3</b> Interactive mapping of individual penguins abstracted from a big dataset</a></li>
+<li class="chapter" data-level="5.9.4" data-path="spatial.html"><a href="spatial.html#exercise-project-preparation"><i class="fa fa-check"></i><b>5.9.4</b> Exercise project preparation</a></li>
+</ul></li>
+<li class="chapter" data-level="5.10" data-path="spatial.html"><a href="spatial.html#exercises-spatial-data-and-maps"><i class="fa fa-check"></i><b>5.10</b> Exercises: Spatial Data and Maps</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+<li class="divider"></li>
+<li><a href="https://github.com/rstudio/bookdown" target="blank">Published with bookdown</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Introduction to R for GIS</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="visualization" class="section level1 hasAnchor" number="4">
+<h1><span class="header-section-number">Chapter 4</span> Visualization<a href="visualization.html#visualization" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p><img src="R4GIS_files/figure-html/unnamed-chunk-66-1.png" width="90%" style="display: block; margin: auto;" /></p>
+<p>In this section, we’ll explore visualization methods in R. Visualization has been a key element of R since its inception, since visualization is central to the exploratory philosophy of the language. See <a href="https://bookdown.org/igisc/EnvDataSci/" class="uri">https://bookdown.org/igisc/EnvDataSci/</a> for some examples and setting parameters in base R, but we’ll focus on ggplot2.</p>
+<div id="ggplot2" class="section level2 hasAnchor" number="4.1">
+<h2><span class="header-section-number">4.1</span> ggplot2<a href="visualization.html#ggplot2" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>The <code>gpplot2</code> package, part of the tidyverse (and installed and loaded with <code>tidyverse</code>)is based on the <em>Grammar of Graphics</em> because it provides considerable control over your graphics while remaining fairly easily readable, as long as you buy into its grammar.</p>
+<p>The <code>ggplot2</code> app (and its primary function <code>ggplot</code>) looks at three aspects of a graph:</p>
+<ul>
+<li>data : where are the data coming from?</li>
+<li>geometry : what type of graph are we creating?</li>
+<li>aesthetics : what choices can we make about symbology and how do we connect symbology to data?</li>
+</ul>
+<p>As with other tidyverse and RStudio packages, find the ggplot2 cheat sheet at <a href="https://www.rstudio.com/resources/cheatsheets/" class="uri">https://www.rstudio.com/resources/cheatsheets/</a></p>
+</div>
+<div id="summary-statistical-graphics" class="section level2 hasAnchor" number="4.2">
+<h2><span class="header-section-number">4.2</span> Summary statistical graphics<a href="visualization.html#summary-statistical-graphics" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Being a language that strongly supports statistical analysis, R provides quite an array of ways of exploring and analyzing data, and graphics are an important part of that. The visualization chapter of <a href="https://bookdown.org/igisc/EnvDataSci/" class="uri">https://bookdown.org/igisc/EnvDataSci/</a> includes much more on these methods, and many of these set up the statistical modeling parts of that book. Looking at summary statistics and creating graphs of our data variables will also be important for mapping and other GISc methods, so we’ll look at a few examples, but you can explore further in the larger book.</p>
+<div id="plotting-one-variable" class="section level3 hasAnchor" number="4.2.1">
+<h3><span class="header-section-number">4.2.1</span> Plotting one variable<a href="visualization.html#plotting-one-variable" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>The <code>ggplot</code> function provides plots of single and multiple variables, using various coordinate systems (including geographic). We’ll start with just plotting one variable, which might be <em>continuous</em> – where we might want to see a histogram, density plot, or dot plot – or <em>discrete</em> – where we might want to see something like a a bar graph, like the first example below (Figure <a href="visualization.html#fig:visSimpleBarGraph">4.1</a>).</p>
+<p>We’ll look at a study of Normalized Difference Vegetation Index from a transect across a montane meadow in the northern Sierra Nevada, derived from multispectral drone imagery <span class="citation">(<a href="#ref-NDVI" role="doc-biblioref">Davis et al. 2020</a>)</span>.</p>
+<div class="sourceCode" id="cb200"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb200-1"><a href="visualization.html#cb200-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(igisci)</span>
+<span id="cb200-2"><a href="visualization.html#cb200-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb200-3"><a href="visualization.html#cb200-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(XSptsNDVI)</span></code></pre></div>
+<pre><code>##     DistNtoS       elevation     vegetation          geometry        
+##  Min.   :  0.0   Min.   :1510   Length:29          Length:29         
+##  1st Qu.: 37.0   1st Qu.:1510   Class :character   Class :character  
+##  Median :175.0   Median :1511   Mode  :character   Mode  :character  
+##  Mean   :164.7   Mean   :1511                                        
+##  3rd Qu.:275.5   3rd Qu.:1511                                        
+##  Max.   :298.8   Max.   :1511                                        
+##   NDVIgrowing     NDVIsenescent   
+##  Min.   :0.3255   Min.   :0.1402  
+##  1st Qu.:0.5052   1st Qu.:0.2418  
+##  Median :0.6169   Median :0.2817  
+##  Mean   :0.5901   Mean   :0.3662  
+##  3rd Qu.:0.6768   3rd Qu.:0.5407  
+##  Max.   :0.7683   Max.   :0.7578</code></pre>
+<div class="sourceCode" id="cb202"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb202-1"><a href="visualization.html#cb202-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(XSptsNDVI, <span class="fu">aes</span>(vegetation)) <span class="sc">+</span> </span>
+<span id="cb202-2"><a href="visualization.html#cb202-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>()</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visSimpleBarGraph"></span>
+<img src="R4GIS_files/figure-html/visSimpleBarGraph-1.png" alt="Simple bar graph of meadow vegetation samples" width="75%" />
+<p class="caption">
+FIGURE 4.1: Simple bar graph of meadow vegetation samples
+</p>
+</div>
+</div>
+<div id="histogram" class="section level3 hasAnchor" number="4.2.2">
+<h3><span class="header-section-number">4.2.2</span> Histogram<a href="visualization.html#histogram" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Histograms are very useful for looking at the distribution of continuous variables (Figure <a href="visualization.html#fig:visNDVIknuthson">4.2</a>). We’ll start by using a pivot table (these will be discussed in the next chapter, on data transformation.)</p>
+<div class="sourceCode" id="cb203"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb203-1"><a href="visualization.html#cb203-1" aria-hidden="true" tabindex="-1"></a>XSptsPheno <span class="ot">&lt;-</span> XSptsNDVI <span class="sc">%&gt;%</span></span>
+<span id="cb203-2"><a href="visualization.html#cb203-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(vegetation <span class="sc">!=</span> <span class="st">&quot;pine&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb203-3"><a href="visualization.html#cb203-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">starts_with</span>(<span class="st">&quot;NDVI&quot;</span>), </span>
+<span id="cb203-4"><a href="visualization.html#cb203-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">&quot;phenology&quot;</span>, </span>
+<span id="cb203-5"><a href="visualization.html#cb203-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">&quot;NDVI&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb203-6"><a href="visualization.html#cb203-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">phenology =</span> <span class="fu">str_sub</span>(phenology, <span class="dv">5</span>, <span class="fu">str_length</span>(phenology)))</span></code></pre></div>
+<div class="sourceCode" id="cb204"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb204-1"><a href="visualization.html#cb204-1" aria-hidden="true" tabindex="-1"></a>XSptsPheno <span class="sc">%&gt;%</span></span>
+<span id="cb204-2"><a href="visualization.html#cb204-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(NDVI)) <span class="sc">+</span> </span>
+<span id="cb204-3"><a href="visualization.html#cb204-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth=</span><span class="fl">0.05</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visNDVIknuthson"></span>
+<img src="R4GIS_files/figure-html/visNDVIknuthson-1.png" alt="Distribution of NDVI, Knuthson Meadow" width="75%" />
+<p class="caption">
+FIGURE 4.2: Distribution of NDVI, Knuthson Meadow
+</p>
+</div>
+<p>Histograms can be created in a couple of ways, one the conventional histogram that provides the most familiar view, for instance of the “bell curve” of a normal distribution (Figure <a href="visualization.html#fig:visTemperaturesHisto">4.3</a>).</p>
+<div class="sourceCode" id="cb205"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb205-1"><a href="visualization.html#cb205-1" aria-hidden="true" tabindex="-1"></a>sierraData <span class="sc">%&gt;%</span></span>
+<span id="cb205-2"><a href="visualization.html#cb205-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ggplot</span>(<span class="fu">aes</span>(TEMPERATURE)) <span class="sc">+</span></span>
+<span id="cb205-3"><a href="visualization.html#cb205-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">fill=</span><span class="st">&quot;dark green&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visTemperaturesHisto"></span>
+<img src="R4GIS_files/figure-html/visTemperaturesHisto-1.png" alt="Distribution of Average Monthly Temperatures, Sierra Nevada" width="75%" />
+<p class="caption">
+FIGURE 4.3: Distribution of Average Monthly Temperatures, Sierra Nevada
+</p>
+</div>
+<blockquote>
+<p>Another way is a cumulative histogram, described in <a href="https://bookdown.org/igisc/EnvDataSci/" class="uri">https://bookdown.org/igisc/EnvDataSci/</a> . Another approach is a density plot, which is more of a <em>continuous</em> type of histogram, like the following example which also applies an alpha setting to compare two distributions:</p>
+</blockquote>
+<div class="sourceCode" id="cb206"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb206-1"><a href="visualization.html#cb206-1" aria-hidden="true" tabindex="-1"></a>XSptsPheno <span class="sc">%&gt;%</span></span>
+<span id="cb206-2"><a href="visualization.html#cb206-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(NDVI, <span class="at">fill=</span>phenology)) <span class="sc">+</span></span>
+<span id="cb206-3"><a href="visualization.html#cb206-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">alpha=</span><span class="fl">0.2</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visDensityAlpha"></span>
+<img src="R4GIS_files/figure-html/visDensityAlpha-1.png" alt="Comparative density plot using alpha setting" width="75%" />
+<p class="caption">
+FIGURE 4.4: Comparative density plot using alpha setting
+</p>
+</div>
+</div>
+<div id="other-statistical-graphics" class="section level3 hasAnchor" number="4.2.3">
+<h3><span class="header-section-number">4.2.3</span> Other statistical graphics<a href="visualization.html#other-statistical-graphics" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Some other statistical graphics that are useful are boxplots, scatter plots, trend lines, and pairs plots.</p>
+<p>Tukey boxplots provide another way of looking at the distributions of continuous variables. Typically these are stratified by a factor, such as <code>site</code> in the euc/oak study (Figure <a href="visualization.html#fig:visBoxplotByRunoff">4.5</a>):</p>
+<div class="sourceCode" id="cb207"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb207-1"><a href="visualization.html#cb207-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> tidy_eucoak) <span class="sc">+</span></span>
+<span id="cb207-2"><a href="visualization.html#cb207-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> site, <span class="at">y =</span> runoff_L))</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visBoxplotByRunoff"></span>
+<img src="R4GIS_files/figure-html/visBoxplotByRunoff-1.png" alt="Boxplot of runoff by site" width="75%" />
+<p class="caption">
+FIGURE 4.5: Boxplot of runoff by site
+</p>
+</div>
+<p>And then as we did above, we can communicate more by coloring by tree type. Note that this is called <em>within</em> the <code>aes()</code> function (Figure <a href="visualization.html#fig:visEucOakRunoffColored">4.6</a>).</p>
+<div class="sourceCode" id="cb208"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb208-1"><a href="visualization.html#cb208-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> tidy_eucoak) <span class="sc">+</span></span>
+<span id="cb208-2"><a href="visualization.html#cb208-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="fu">aes</span>(<span class="at">x=</span>site, <span class="at">y=</span>runoff_L, <span class="at">color=</span>tree))</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visEucOakRunoffColored"></span>
+<img src="R4GIS_files/figure-html/visEucOakRunoffColored-1.png" alt="Runoff at Bay Area Sites, colored as eucalyptus and oak" width="75%" />
+<p class="caption">
+FIGURE 4.6: Runoff at Bay Area Sites, colored as eucalyptus and oak
+</p>
+</div>
+<p>When we get to statistical models, the first one we’ll look at is a simple linear model. It’s often useful to display this as a <em>trend line</em>, and this can be done with ggplot2’s <code>geom_smooth()</code> function, specifying the linear model “lm” method. By default, the graph displays the standard error as a gray pattern (Figure <a href="visualization.html#fig:visTrendLine">4.7</a>).</p>
+<div class="sourceCode" id="cb209"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb209-1"><a href="visualization.html#cb209-1" aria-hidden="true" tabindex="-1"></a>sierraFeb <span class="sc">%&gt;%</span></span>
+<span id="cb209-2"><a href="visualization.html#cb209-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(TEMPERATURE,ELEVATION)) <span class="sc">+</span></span>
+<span id="cb209-3"><a href="visualization.html#cb209-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color=</span><span class="st">&quot;blue&quot;</span>) <span class="sc">+</span></span>
+<span id="cb209-4"><a href="visualization.html#cb209-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">color=</span><span class="st">&quot;red&quot;</span>, <span class="at">method=</span><span class="st">&quot;lm&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visTrendLine"></span>
+<img src="R4GIS_files/figure-html/visTrendLine-1.png" alt="Trend line with a linear model" width="75%" />
+<p class="caption">
+FIGURE 4.7: Trend line with a linear model
+</p>
+</div>
+<div class="sourceCode" id="cb210"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb210-1"><a href="visualization.html#cb210-1" aria-hidden="true" tabindex="-1"></a>sierraFeb <span class="sc">%&gt;%</span></span>
+<span id="cb210-2"><a href="visualization.html#cb210-2" aria-hidden="true" tabindex="-1"></a>     dplyr<span class="sc">::</span><span class="fu">select</span>(ELEVATION<span class="sc">:</span>TEMPERATURE) <span class="sc">%&gt;%</span></span>
+<span id="cb210-3"><a href="visualization.html#cb210-3" aria-hidden="true" tabindex="-1"></a>     <span class="fu">pairs</span>()</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visPairsPlot"></span>
+<img src="R4GIS_files/figure-html/visPairsPlot-1.png" alt="Pairs plot for Sierra Nevada stations variables" width="75%" />
+<p class="caption">
+FIGURE 4.8: Pairs plot for Sierra Nevada stations variables
+</p>
+</div>
+<p><strong>Visualizing soil CO<sub>2</sub> data with a box plot</strong></p>
+<p>In a study of soil CO<sub>2</sub> in the Marble Mountains of California <span class="citation">(<a href="#ref-marblesCO2" role="doc-biblioref">Davis, Amato, and Kiefer 2001</a>)</span>, we sampled extracted soil air (Figure <a href="visualization.html#fig:visSoilGasSampling">4.9</a>) in a 11-point transect across Marble Valley in 1997 (Figure <a href="visualization.html#fig:visMarblesSitesTopo">4.10</a>). Again, a Tukey boxplot is useful for visualization (Figure <a href="visualization.html#fig:visSoilTukey">4.11</a>).</p>
+<blockquote>
+<p>Note that in this book you’ll often see CO<sub>2</sub> written as CO2. These are both meant to refer to carbon dioxide, but I’ve learned that subscripts in figure headings don’t always get passed through to the LaTeX compiler for the pdf/printed version, so I’m forced to write it without the subscript. Similarly CH<sub>4</sub> might be written as CH4, etc. The same applies often to variable names and axis labels in graphs, though there are some workarounds.</p>
+</blockquote>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visSoilGasSampling"></span>
+<img src="img/marbleGap.png" alt="Marble Valley, Marble Mountains Wilderness, California" width="75%" />
+<p class="caption">
+FIGURE 4.9: Marble Valley, Marble Mountains Wilderness, California
+</p>
+</div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visMarblesSitesTopo"></span>
+<img src="img/marblesCO2map.png" alt="Marble Mountains soil gas sampling sites, with surface topographic features and cave passages" width="50%" />
+<p class="caption">
+FIGURE 4.10: Marble Mountains soil gas sampling sites, with surface topographic features and cave passages
+</p>
+</div>
+<div class="sourceCode" id="cb211"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb211-1"><a href="visualization.html#cb211-1" aria-hidden="true" tabindex="-1"></a>soilCO2 <span class="ot">&lt;-</span> soilCO2_97</span>
+<span id="cb211-2"><a href="visualization.html#cb211-2" aria-hidden="true" tabindex="-1"></a>soilCO2<span class="sc">$</span>SITE <span class="ot">&lt;-</span> <span class="fu">factor</span>(soilCO2<span class="sc">$</span>SITE)  <span class="co"># in order to make the numeric field a factor</span></span>
+<span id="cb211-3"><a href="visualization.html#cb211-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> soilCO2, <span class="at">mapping =</span> <span class="fu">aes</span>(<span class="at">x =</span> SITE, <span class="at">y =</span> CO2pct)) <span class="sc">+</span></span>
+<span id="cb211-4"><a href="visualization.html#cb211-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>()</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visSoilTukey"></span>
+<img src="R4GIS_files/figure-html/visSoilTukey-1.png" alt="Visualizing soil CO2 data with a Tukey box plot" width="75%" />
+<p class="caption">
+FIGURE 4.11: Visualizing soil CO2 data with a Tukey box plot
+</p>
+</div>
+</div>
+</div>
+<div id="plotting-two-variables" class="section level2 hasAnchor" number="4.3">
+<h2><span class="header-section-number">4.3</span> Plotting Two Variables<a href="visualization.html#plotting-two-variables" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<blockquote>
+<p>See <a href="https://bookdown.org/igisc/EnvDataSci/" class="uri">https://bookdown.org/igisc/EnvDataSci/</a> for methods of graphing two variables, either both continuous or with one discrete.</p>
+</blockquote>
+<div id="color-systems" class="section level3 hasAnchor" number="4.3.1">
+<h3><span class="header-section-number">4.3.1</span> Color systems<a href="visualization.html#color-systems" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>There’s a lot to working with color, with different color schemes needed for continuous data vs discrete values, and situations like bidirectional data. We’ll look into some basics, but the reader is recommended to learn more at sources like <a href="https://cran.r-project.org/web/packages/RColorBrewer/index.html" class="uri">https://cran.r-project.org/web/packages/RColorBrewer/index.html</a> or <a href="https://colorbrewer2.org/" class="uri">https://colorbrewer2.org/</a> or just Googling “rcolorbrewer” or “colorbrewer” or even “R colors”.</p>
+<div id="specifying-colors-to-use-for-a-graphical-element" class="section level4 hasAnchor" number="4.3.1.1">
+<h4><span class="header-section-number">4.3.1.1</span> Specifying colors to use for a graphical element<a href="visualization.html#specifying-colors-to-use-for-a-graphical-element" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+<p>When a color is requested for an entire graphical element, like geom_point or geom_line, and <em>not</em> in the aesthetics, all feature get that color. In the following graph the same x and y values are used to display as points in blue and as lines in red (Figure <a href="visualization.html#fig:visAestheticsPtsLines">4.12</a>).</p>
+<div class="sourceCode" id="cb212"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb212-1"><a href="visualization.html#cb212-1" aria-hidden="true" tabindex="-1"></a>sierraFeb <span class="sc">%&gt;%</span></span>
+<span id="cb212-2"><a href="visualization.html#cb212-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(TEMPERATURE,ELEVATION)) <span class="sc">+</span></span>
+<span id="cb212-3"><a href="visualization.html#cb212-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color=</span><span class="st">&quot;blue&quot;</span>) <span class="sc">+</span></span>
+<span id="cb212-4"><a href="visualization.html#cb212-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color=</span><span class="st">&quot;red&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visAestheticsPtsLines"></span>
+<img src="R4GIS_files/figure-html/visAestheticsPtsLines-1.png" alt="Using aesthetics settings for both points and lines" width="75%" />
+<p class="caption">
+FIGURE 4.12: Using aesthetics settings for both points and lines
+</p>
+</div>
+<blockquote>
+<p>Note the use of pipe to start with the data then apply ggplot. This is one approach for creating graphs, and provides a fairly straightforward way to progress from data to visualization.</p>
+</blockquote>
+</div>
+<div id="color-from-variable-in-aesthetics" class="section level4 hasAnchor" number="4.3.1.2">
+<h4><span class="header-section-number">4.3.1.2</span> Color from variable, in aesthetics<a href="visualization.html#color-from-variable-in-aesthetics" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+<p>If color is connected to a variable within the <code>aes()</code> call, a color scheme is chosen to assign either a range (for continuous) or a set of unique colors (for discrete). In this graph, color is defined inside <code>aes</code>, so is based on COUNTY (Figure <a href="visualization.html#fig:visColorFromVar">4.13</a>).</p>
+<div class="sourceCode" id="cb213"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb213-1"><a href="visualization.html#cb213-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>sierraFeb) <span class="sc">+</span> </span>
+<span id="cb213-2"><a href="visualization.html#cb213-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(TEMPERATURE, ELEVATION, <span class="at">color=</span>COUNTY))</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visColorFromVar"></span>
+<img src="R4GIS_files/figure-html/visColorFromVar-1.png" alt="Color set within aes()" width="75%" />
+<p class="caption">
+FIGURE 4.13: Color set within aes()
+</p>
+</div>
+<p>Note that counties represent discrete data, and this is detected by ggplot to assign an appropriate color scheme. Continuous data will require a different palette (Figure <a href="visualization.html#fig:visSagehenQECcolorTemp">4.14</a>).</p>
+<div class="sourceCode" id="cb214"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb214-1"><a href="visualization.html#cb214-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse); <span class="fu">library</span>(lubridate); <span class="fu">library</span>(igisci)</span>
+<span id="cb214-2"><a href="visualization.html#cb214-2" aria-hidden="true" tabindex="-1"></a>sagehen <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">ex</span>(<span class="st">&quot;sierra/sagehen_dv.csv&quot;</span>))</span>
+<span id="cb214-3"><a href="visualization.html#cb214-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>sagehen, <span class="fu">aes</span>(<span class="at">x=</span>Q, <span class="at">y=</span>EC, <span class="at">col=</span>waterTmax)) <span class="sc">+</span> <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb214-4"><a href="visualization.html#cb214-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>() <span class="sc">+</span> <span class="fu">scale_y_log10</span>()</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visSagehenQECcolorTemp"></span>
+<img src="R4GIS_files/figure-html/visSagehenQECcolorTemp-1.png" alt="Streamflow (Q) and specific electrical conductance (EC) for Sagehen Creek, colored by temperature" width="75%" />
+<p class="caption">
+FIGURE 4.14: Streamflow (Q) and specific electrical conductance (EC) for Sagehen Creek, colored by temperature
+</p>
+</div>
+<p><strong>River map and profile</strong></p>
+<p>We’ll build a <code>riverData</code> dataframe with x and y location values and elevation. We’ll need to start by creating empty vectors we’ll populate with values in a loop: <code>d</code>, <code>longd</code>, and <code>s</code> are assigned an empty value <code>double()</code>, then slope <code>s</code> (since it only occurs between two points) needs one <code>NA</code> value assigned for the last point <code>s[length(x]</code> to have the same length as other vectors.</p>
+<div class="sourceCode" id="cb215"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb215-1"><a href="visualization.html#cb215-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb215-2"><a href="visualization.html#cb215-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1000</span>, <span class="dv">1100</span>, <span class="dv">1300</span>, <span class="dv">1500</span>, <span class="dv">1600</span>, <span class="dv">1800</span>, <span class="dv">1900</span>)</span>
+<span id="cb215-3"><a href="visualization.html#cb215-3" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">500</span>, <span class="dv">780</span>, <span class="dv">820</span>, <span class="dv">950</span>, <span class="dv">1250</span>, <span class="dv">1320</span>, <span class="dv">1500</span>)</span>
+<span id="cb215-4"><a href="visualization.html#cb215-4" aria-hidden="true" tabindex="-1"></a>elev <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">25</span>, <span class="dv">75</span>, <span class="dv">150</span>)</span>
+<span id="cb215-5"><a href="visualization.html#cb215-5" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">double</span>()      <span class="co"># creates an empty numeric vector </span></span>
+<span id="cb215-6"><a href="visualization.html#cb215-6" aria-hidden="true" tabindex="-1"></a>longd <span class="ot">&lt;-</span> <span class="fu">double</span>()  <span class="co"># (&quot;double&quot; means double-precision floating point)</span></span>
+<span id="cb215-7"><a href="visualization.html#cb215-7" aria-hidden="true" tabindex="-1"></a>s <span class="ot">&lt;-</span> <span class="fu">double</span>()</span>
+<span id="cb215-8"><a href="visualization.html#cb215-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(x)){</span>
+<span id="cb215-9"><a href="visualization.html#cb215-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(i<span class="sc">==</span><span class="dv">1</span>){longd[i] <span class="ot">&lt;-</span> <span class="dv">0</span>; d[i] <span class="ot">&lt;-</span><span class="dv">0</span>}</span>
+<span id="cb215-10"><a href="visualization.html#cb215-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span>{</span>
+<span id="cb215-11"><a href="visualization.html#cb215-11" aria-hidden="true" tabindex="-1"></a>    d[i] <span class="ot">&lt;-</span> <span class="fu">sqrt</span>((x[i]<span class="sc">-</span>x[i<span class="dv">-1</span>])<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (y[i]<span class="sc">-</span>y[i<span class="dv">-1</span>])<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb215-12"><a href="visualization.html#cb215-12" aria-hidden="true" tabindex="-1"></a>    longd[i] <span class="ot">&lt;-</span> longd[i<span class="dv">-1</span>] <span class="sc">+</span> d[i]</span>
+<span id="cb215-13"><a href="visualization.html#cb215-13" aria-hidden="true" tabindex="-1"></a>    s[i<span class="dv">-1</span>] <span class="ot">&lt;-</span> (elev[i]<span class="sc">-</span>elev[i<span class="dv">-1</span>])<span class="sc">/</span>d[i]}}</span>
+<span id="cb215-14"><a href="visualization.html#cb215-14" aria-hidden="true" tabindex="-1"></a>s[<span class="fu">length</span>(x)] <span class="ot">&lt;-</span> <span class="cn">NA</span>  <span class="co"># make the last slope value NA since we have no data past it, </span></span>
+<span id="cb215-15"><a href="visualization.html#cb215-15" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># and so the vector lengths are all the same</span></span>
+<span id="cb215-16"><a href="visualization.html#cb215-16" aria-hidden="true" tabindex="-1"></a>riverData <span class="ot">&lt;-</span> <span class="fu">bind_cols</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">elev=</span>elev,<span class="at">d=</span>d,<span class="at">longd=</span>longd,<span class="at">s=</span>s)</span>
+<span id="cb215-17"><a href="visualization.html#cb215-17" aria-hidden="true" tabindex="-1"></a>riverData</span></code></pre></div>
+<pre><code>## # A tibble: 7 × 6
+##       x     y  elev     d longd        s
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;
+## 1  1000   500     0    0     0   0.00336
+## 2  1100   780     1  297.  297.  0.00490
+## 3  1300   820     2  204.  501.  0.0126 
+## 4  1500   950     5  239.  740.  0.0632 
+## 5  1600  1250    25  316. 1056.  0.236  
+## 6  1800  1320    75  212. 1268.  0.364  
+## 7  1900  1500   150  206. 1474. NA</code></pre>
+<p>For this continuous data, a range of values is detected and a continous color scheme is assigned (Figure <a href="visualization.html#fig:visGreenRed">4.15</a>). The ggplot <code>scale_color_gradient</code> function is used to establish end points of a color range that the data are stretched between (Figure <a href="visualization.html#fig:visGreenRedLongProf">4.16</a>). We can use this for many continuous variables, such as slope (Figure <a href="visualization.html#fig:visSlopeLong">4.17</a>). The <code>scale_color_gradient2</code> lets you use a <code>mid</code> color. Note that there’s a comparable <code>scale_fill_gradient</code> and <code>scale_fill_gradient2</code> for use when specifying a fill (e.g. for a polygon) instead of a color (for polygons linked to the border).</p>
+<div class="sourceCode" id="cb217"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb217-1"><a href="visualization.html#cb217-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(riverData, <span class="fu">aes</span>(x,y)) <span class="sc">+</span></span>
+<span id="cb217-2"><a href="visualization.html#cb217-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">col=</span>s), <span class="at">size=</span><span class="fl">1.2</span>) <span class="sc">+</span> </span>
+<span id="cb217-3"><a href="visualization.html#cb217-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">col=</span>s, <span class="at">size=</span>elev)) <span class="sc">+</span></span>
+<span id="cb217-4"><a href="visualization.html#cb217-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_fixed</span>(<span class="at">ratio=</span><span class="dv">1</span>) <span class="sc">+</span> <span class="fu">scale_color_gradient</span>(<span class="at">low=</span><span class="st">&quot;green&quot;</span>, <span class="at">high=</span><span class="st">&quot;red&quot;</span>) <span class="sc">+</span></span>
+<span id="cb217-5"><a href="visualization.html#cb217-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Simulated river path, elevations, and slopes&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visGreenRed"></span>
+<img src="R4GIS_files/figure-html/visGreenRed-1.png" alt="Channel slope as range from green to red, vertices sized by elevation" width="75%" />
+<p class="caption">
+FIGURE 4.15: Channel slope as range from green to red, vertices sized by elevation
+</p>
+</div>
+<div class="sourceCode" id="cb218"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb218-1"><a href="visualization.html#cb218-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(riverData, <span class="fu">aes</span>(longd,elev)) <span class="sc">+</span> <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">col=</span>s), <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span> <span class="fu">geom_point</span>()  <span class="sc">+</span></span>
+<span id="cb218-2"><a href="visualization.html#cb218-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low=</span><span class="st">&quot;green&quot;</span>, <span class="at">high=</span><span class="st">&quot;red&quot;</span>) <span class="sc">+</span></span>
+<span id="cb218-3"><a href="visualization.html#cb218-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Longitudinal profile&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visGreenRedLongProf"></span>
+<img src="R4GIS_files/figure-html/visGreenRedLongProf-1.png" alt="Channel slope as range of line colors on a longitudinal profile" width="75%" />
+<p class="caption">
+FIGURE 4.16: Channel slope as range of line colors on a longitudinal profile
+</p>
+</div>
+<div class="sourceCode" id="cb219"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb219-1"><a href="visualization.html#cb219-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(riverData, <span class="fu">aes</span>(longd,s)) <span class="sc">+</span> <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">col=</span>s), <span class="at">size=</span><span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb219-2"><a href="visualization.html#cb219-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low=</span><span class="st">&quot;green&quot;</span>, <span class="at">high=</span><span class="st">&quot;red&quot;</span>) <span class="sc">+</span></span>
+<span id="cb219-3"><a href="visualization.html#cb219-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Slope by longitudinal distance upstream&quot;</span>)</span></code></pre></div>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:visSlopeLong"></span>
+<img src="R4GIS_files/figure-html/visSlopeLong-1.png" alt="Channel slope by longitudinal distance as scatter points colored by slope" width="75%" />
+<p class="caption">
+FIGURE 4.17: Channel slope by longitudinal distance as scatter points colored by slope
+</p>
+</div>
+<div style="page-break-after: always;"></div>
+</div>
+</div>
+</div>
+<div id="exercises-visualization" class="section level2 hasAnchor" number="4.4">
+<h2><span class="header-section-number">4.4</span> Exercises: Visualization<a href="visualization.html#exercises-visualization" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-15" class="exercise"><strong>Exercise 4.1  </strong></span>Create a bar graph of the counts of the species in the <strong><code>penguins</code></strong> data frame <span class="citation">(<a href="#ref-palmer" role="doc-biblioref">Horst, Hill, and Gorman 2020</a>)</span>. What can you say about what it shows?</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-16" class="exercise"><strong>Exercise 4.2  </strong></span>Use <code>bind_cols</code> in <code>dplyr</code> to create a tibble from built-in vectors <code>state.abb</code> and <code>state.region</code>, then use <code>ggplot</code> with <code>geom_bar</code> to create a bar graph of the four regions.</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-17" class="exercise"><strong>Exercise 4.3  </strong></span>Convert the built-in time series <code>treering</code> into a tibble <code>tr</code> using the <code>tibble()</code> function with the single variable assigned as <code>treering = treering</code> (or just specifying <code>treering</code> will also work for this simple example), then create a histogram, using that tibble and variable for the <code>data</code> and <code>x</code> settings needed. Attach a screen capture of the histogram. (Also, learn about the treering data by entering <code>?treering</code> in the console and read the Help displayed.)</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-18" class="exercise"><strong>Exercise 4.4  </strong></span>Create a new tibble <code>st</code> using <code>bind_cols</code> with <code>Name=state.name</code>, <code>Abb=state.abb</code>, <code>Region=state.region</code>, and <code>as_tibble(state.x77)</code>. <em>Note that this works since all of the parts are sorted by state.</em> From <code>st</code>, create a density plot from the variable <code>Frost</code> (number of days with frost for that state). What is the approximate modal value?</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-19" class="exercise"><strong>Exercise 4.5  </strong></span>From <code>st</code> create a a boxplot of <code>Area</code> by <code>Region</code>. Which region has the highest and which has the lowest median Area? Do the same for <code>Frost</code>.</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-20" class="exercise"><strong>Exercise 4.6  </strong></span>From <code>st</code>, compare murder rate (y is <code>Murder</code>) to <code>Frost</code> (as x) in a scatter plot, colored by <code>Region</code>.</p>
+</div>
+<div class="exercise">
+<p><span id="exr:unlabeled-div-21" class="exercise"><strong>Exercise 4.7  </strong></span>Add a trend line (smooth) with method=“lm” to your scatterplot, not colored by <code>Region</code> (but keep the points colored by region). What can you say about what this graph is showing you?</p>
+</div>
+
+</div>
+</div>
+<h3>References<a href="references.html#references" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-marblesCO2" class="csl-entry">
+Davis, JD, P Amato, and R Kiefer. 2001. <span>“Soil Carbon Dioxide in a Summer-Dry Subalpine Karst, Marble Mountains, California, USA.”</span> <em>Zeitschrift Für Geomorphologie N.F.</em> 45 (3): 385–400. <a href="https://www.researchgate.net/publication/258333952_Soil_carbon_dioxide_in_a_summer-dry_subalpine_karst_Marble_Mountains_California_USA">https://www.researchgate.net/publication/258333952_Soil_carbon_dioxide_in_a_summer-dry_subalpine_karst_Marble_Mountains_California_USA</a>.
+</div>
+<div id="ref-NDVI" class="csl-entry">
+Davis, JD, L Blesius, M Slocombe, S Maher, M Vasey, P Christian, and P Lynch. 2020. <span>“Unpiloted Aerial System (UAS)-Supported Biogeomorphic Analysis of Restored Sierra Nevada Montane Meadows.”</span> <em>Remote Sensing</em> 12. <a href="https://www.mdpi.com/2072-4292/12/11/1828">https://www.mdpi.com/2072-4292/12/11/1828</a>.
+</div>
+<div id="ref-palmer" class="csl-entry">
+Horst, Allison Marie, Alison Presmanes Hill, and Kristen B Gorman. 2020. <em>Palmerpenguins: Palmer Archipelago (Antarctica) Penguin Data</em>. <a href="https://allisonhorst.github.io/palmerpenguins/">https://allisonhorst.github.io/palmerpenguins/</a>.
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="abstraction.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="spatial.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"linkedin": false,
+"weibo": false,
+"instapaper": false,
+"vk": false,
+"whatsapp": false,
+"all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": null,
+"text": null
+},
+"history": {
+"link": null,
+"text": null
+},
+"view": {
+"link": null,
+"text": null
+},
+"download": null,
+"search": {
+"engine": "fuse",
+"options": null
+},
+"toc": {
+"collapse": "section"
+},
+"book_filename": "envdatasci",
+"toc_depth": 4
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>

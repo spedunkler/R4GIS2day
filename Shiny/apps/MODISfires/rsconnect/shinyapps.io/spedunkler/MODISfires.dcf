@@ -1,0 +1,13 @@
+name: MODISfires
+title: MODISfires
+username:
+account: spedunkler
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2984055
+bundleId: 4829595
+url: https://spedunkler.shinyapps.io/MODISfires/
+when: 1626544738.64891
+lastSyncTime: 1626544738.64891
+asMultiple: FALSE
+asStatic: FALSE

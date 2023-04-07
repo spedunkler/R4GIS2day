@@ -1,0 +1,588 @@
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=T,echo=T,fig.show=T,results=T,warning=F,message=F,fig.align='center',out.width="75%")
+```
+
+# Spatial Analysis {#spatial-analysis}
+
+```{r echo=F, message=F, warning=F, results="hide"}
+library(igisci); library(sf); library(tidyverse)
+TRI_pts_df <- read_csv(ex("TRI/TRI_2017_CA.csv"))
+library(igisci); library(sf); library(tidyverse)
+TRI_pts_df <- TRI_pts_df %>% 
+  group_by(FACILITY_NAME) %>% 
+                      summarize(FACILITY_NAME=first(FACILITY_NAME), 
+                                LONGITUDE=first(LONGITUDE), 
+                                LATITUDE=first(LATITUDE),
+                                STACK_AIR=sum(`5.2_STACK_AIR`)) %>%
+  filter(STACK_AIR > 10000)
+TRI_pts <- st_as_sf(TRI_pts_df, coords = c("LONGITUDE","LATITUDE"), crs=4326)
+D50km <- units::set_units(50, "km")
+TRI_50kBuff <- st_union(st_buffer(TRI_pts, dist = D50km))
+CATRI <- st_intersection(st_make_valid(TRI_50kBuff), st_make_valid(CA_counties))
+CATRI <- st_union(CATRI)
+CountiesWithTRI <- CA_counties %>% st_join(TRI_pts) %>%
+  filter(!is.na(FACILITY_NAME))
+unique(CountiesWithTRI$NAME)
+```
+```{r echo=F}
+ggplot() +
+  geom_sf(data=CountiesWithTRI, fill="yellow") +
+  geom_sf(data=CATRI, fill="red", alpha=0.5) +
+  geom_sf(data=CA_counties, fill=NA) + 
+  geom_sf(data=TRI_pts)
+
+```
+
+\index{spatial analysis}Spatial analysis provides an expansive analytical landscape with theoretical underpinnings dating to at least the 1950s (@SpatialAnalysis), contributing to the development of geographic information systems as well as spatial tools in more statistically oriented programming environments like R. We won't attempt to approach any thorough coverage of these methods, and we would refer the reader for more focused consideration using R-based methods to sources such as @Geocomputation and @rspatial.
+
+In this chapter, we'll continue working with spatial data, and explore spatial analysis methods. We'll look at a selection of useful geospatial abstraction and analysis methods, what are also called \index{geoprocessing}*geoprocessing* tools in a GIS. The R Spatial world has grown in recent years to include an increasingly good array of tools. This chapter will focus on *vector* GIS methods, and here we don't mean the same thing as the vector data objects in R nomenclature (Python's pandas package, which uses a similar data structure, calls these "series" instead of vectors), but instead on feature geometries and their spatial relationships based on the coordinate referencing system.
+
+## Data Frame Operations
+
+\index{data frame operations for spatial analysis}But before we get into those specifically spatial operations, it's important to remember that feature data at least are also data frames, so we can use the methods we already know with them. For instance, we can look at properties of variables and then filter for features that meet a criterion, like all climate station points at greater than 2,000 m elevation, or all above 38°N latitude. To be able to work with latitude as a variable, we'll need to use `remove=FALSE` (the default is to remove them) to retain them when we use `st_as_sf`. 
+
+**Adding a basemap with maptiles**: \index{basemap}We'd like to have a basemap, so we'll create one with the \index{maptiles}`maptiles` package (install if you don't have it.) *Warning: the `get_tiles` function goes online to get the basemap data, so if you don't have a good internet connection or the site goes down, this may fail.* We can then display the basemap with `tm_rgb`.
+
+For temperature, we'll reverse a \index{RColorBrewer}RColorBrewer palette to show a reasonable color scheme by reversing its `RdBu` palette with `rev` (which took me a *long* time to figure out -- color schemes are much more challenging than you might think because there are *many* highly varied uses of color.)
+
+```{r fig.cap="Plotting filtered data: above 2,000 m and 38°N latitude with a basemap", warning=F, message=F}
+library(tmap); library(RColorBrewer); library(sf); library(tidyverse); 
+library(maptiles); library(igisci)
+tmap_mode("plot")
+newname <- unique(str_sub(sierraFeb$STATION_NAME, 1, 
+                          str_locate(sierraFeb$STATION_NAME, ",")-1))
+sierraFeb2000 <- st_as_sf(bind_cols(sierraFeb,STATION=newname) %>% 
+                          dplyr::select(-STATION_NAME) %>% 
+                          filter(ELEVATION >= 2000, !is.na(TEMPERATURE)), 
+                 coords=c("LONGITUDE","LATITUDE"), crs=4326)
+sierraBase <- get_tiles(sierraFeb2000)
+tm_shape(sierraBase) + tm_rgb() +
+  tm_shape(sierraFeb2000) + 
+  tm_symbols(col = "TEMPERATURE", midpoint=NA, palette=rev(brewer.pal(8,"RdBu"))) +
+  tm_text(text = "STATION", size=0.5, auto.placement=T, xmod=0.5, ymod=0.5) +
+  tm_graticules(lines=F)
+```
+
+Now let's include LATITUDE. Let's see what we get by filtering for both `ELEVATION >= 2000` and `LATITUDE >= 38`:
+
+```{r Bodie}
+sierraFeb %>%
+  filter(ELEVATION >= 2000 & LATITUDE >= 38)
+```
+
+The only one left is Bodie (Figure \@ref(fig:spanlBodie)). Maybe that's why Bodie, a ghost town now, has such a reputation for being so friggin' cold (at least for California). I've been snowed on there in summer.
+
+```{r spanlBodie, out.width = "75%", fig.align="center", fig.cap = "A Bodie scene, from Bodie State Historic Park (https://www.parks.ca.gov/)", echo=F}
+knitr::include_graphics(here::here("img", "BodieSHP_Gallery_11.jpg"))
+```
+
+### Using grouped summaries, and filtering by a selection {#GroupedSummaries}
+
+\index{grouped summaries}We've been using February Sierra climate data for demonstrating various things, but this wasn't the original form of the data downloaded, so let's look at the original data and use some dplyr methods to restructure it, in this case to derive annual summaries. We'll use the monthly normals to derive annual values.
+
+We looked at the very useful `group_by ... summarize()` group-summary process earlier \@ref(group-summary). We'll use this and a selection process to create an annual Sierra climate dataframe we can map and analyze. The California monthly normals were downloaded from the National Centers for Environmental Information at NOAA, where you can select desired parameters, monthly normals as frequency, and limit to one state.
+
+-   <https://www.ncei.noaa.gov/>
+-   <https://www.ncei.noaa.gov/products/land-based-station/us-climate-normals>
+-   <https://www.ncei.noaa.gov/access/search/data-search/normals-monthly-1991-2020>
+
+```{r include=F}
+library(tidyverse); library(igisci); library(sf)
+```
+
+First we'll have a quick look at the data to see how it's structured. These were downloaded as monthly normals for the State of California, as of 2010, so there are 12 months coded `201001`:`201012`, with obviously the same `ELEVATION`, `LATITUDE`, and `LONGITUDE`, but monthly values for climate data like `MLY-PRCP-NORMAL`, etc.
+
+```{r warning=F, message=F}
+head(read_csv(ex("sierra/908277.csv")),n=15)
+```
+
+
+To get just the Sierra data, it seemed easiest to just provide a list of relevant county names to \index{filter}filter the counties, do a bit of field renaming, then read in a previously created selection of Sierra weather/climate stations.
+
+```{r results="hide", warning=F, message=F}
+sierraCounties <- st_make_valid(CA_counties) %>%
+  filter(NAME %in% c("Alpine","Amador","Butte","Calaveras","El Dorado",
+                     "Fresno","Inyo","Kern","Lassen","Madera","Mariposa",
+                     "Mono","Nevada","Placer","Plumas","Sacramento","Shasta",
+                     "Sierra","Tehama","Tulare","Tuolumne","Yuba"))
+normals <- read_csv(ex("sierra/908277.csv")) %>%
+  mutate(STATION = str_sub(STATION,7,str_length(STATION)))
+sierraStations <- read_csv(ex("sierra/sierraStations.csv"))
+```
+
+To get annual values, we'll want to use the stations as groups in a \index{group\_by}`group_by` `%>%` `summarize` process. For values that stay the same for a station (`LONGITUDE`, `LATITUDE`, `ELEVATION`), we'll use `first()` to get just one of the 12 identical monthly values. For values that vary monthly, we'll `sum()` the monthly precipitations and get the `mean()` of monthly temperatures to get appropriate annual values. We'll also use a `right_join` to keep only the stations that are in the Sierra. *Have a look at this script to make sure you understand what it's doing; it's got several elements you've been introduced to before, and that you should understand.* At the end, we'll use `st_as_sf` to make sf data out of the data frame, and retain the `LONGITUDE` and `LATITUDE` variables in case we want to use them as separate variables (Figure \@ref(fig:spanlSierraData)).
+
+```{r SierraData, fig.cap="Sierra data", warning=F, message=F}
+sierraAnnual <- right_join(sierraStations,normals,by="STATION") %>%
+  filter(!is.na(STATION_NA)) %>% 
+    dplyr::select(-STATION_NA) %>%
+    group_by(STATION_NAME) %>% summarize(LONGITUDE = first(LONGITUDE),
+                                         LATITUDE = first(LATITUDE),
+                                         ELEVATION = first(ELEVATION),
+                                         PRECIPITATION = sum(`MLY-PRCP-NORMAL`),
+                                         TEMPERATURE = mean(`MLY-TAVG-NORMAL`)) %>%
+    mutate(STATION_NAME = str_sub(STATION_NAME,1,str_length(STATION_NAME)-6)) %>%
+  filter(PRECIPITATION > 0) %>% filter(TEMPERATURE > -100) %>%
+  st_as_sf(coords = c("LONGITUDE", "LATITUDE"), crs=4326, remove=F)
+ggplot() + 
+  geom_sf(data=CA_counties, aes(), fill="gray") +
+  geom_sf(data=sierraCounties, aes(), fill="white") + 
+  geom_sf(data=sierraAnnual, aes(col=PRECIPITATION)) +
+  scale_color_gradient(low="orange", high="blue") 
+```
+
+## Spatial Analysis Operations
+
+Again, there is a lot more to spatial analysis than we have time to cover. But we'll explore some particularly useful spatial analysis operations, especially those that contribute to statistical analysis methods we'll be looking at soon. We'll start by continuing to look at subsetting or filtering methods, but ones that use spatial relationships to identify what we want to retain or remove from consideration.
+
+### Using topology to subset
+
+\index{topological subset}Using spatial relationships can be useful in filtering our data, and there are quite a few topological relationships that can be explored. See @Geocomputation for a lot more about topological operations. We'll look at a relatively simple one that identifies whether a feature is within another one, and apply this method to filter for features within a selection of five counties, which we'll start by identifying by name.
+
+```{r include=F}
+library(sf); library(tidyverse); library(igisci)
+```
+
+```{r results="hide", message=F, warning=F}
+nSierraCo <- CA_counties %>%
+  filter(NAME %in% c("Plumas","Butte","Sierra","Nevada","Yuba"))
+```
+
+Then we'll use those counties to select towns (places) that occur within them \index{st\_within}...
+
+```{r results="hide", message=F, warning=F}
+CA_places <- st_read(ex("sierra/CA_places.shp"))
+nCAsel <- lengths(st_within(CA_places, nSierraCo)) > 0 # to get TRUE & FALSE
+nSierraPlaces <- CA_places[nCAsel,]
+```
+
+... and do the same for the `sierraFeb` weather stations \index{st\_within}(Figure \@ref(fig:spanlNSierra)). 
+
+```{r results="hide", message=F, warning=F}
+sierra <- st_as_sf(read_csv(ex("sierra/sierraFeb.csv")), 
+                   coords=c("LONGITUDE","LATITUDE"), crs=4326)
+nCAselSta <- lengths(st_within(sierra, nSierraCo)) > 0 # to get TRUE & FALSE
+nSierraStations <- sierra[nCAselSta,]
+```
+
+```{r results="hide"}
+library(maptiles)
+nsierraBase <- get_tiles(nSierraStations, provider="OpenTopoMap") 
+```
+
+```{r spanlNSierra, message=F, fig.cap="Northern Sierra stations and places"}
+library(tmap)
+tmap_mode("plot")
+tm_shape(nsierraBase) + tm_rgb(alpha=0.5) +
+  tm_shape(nSierraCo) + tm_borders() + tm_text("NAME") +
+  tm_shape(nSierraStations) + tm_symbols(col="blue") +
+  tm_shape(nSierraPlaces) + tm_symbols(col="red", alpha=0.5) + tm_text("AREANAME")
+```
+
+So far, the above is just subsetting for a map, which may be all we're wanting to do, but we'll apply this selection to a distance function in the next section to explore a method using a reduced data set.
+
+### Centroid
+
+\index{centroid}Related to the topological concept of relating features inside other features is creating a new feature in the middle of an existing one, specifically a point placed in the middle of a polygon: a *centroid*. Centroids are useful when you need point data for some kind of analysis, but that point needs to represent the polygon it's contained within. The methods we'll see in the code below include:
+
+-   `st_centroid()` \index{st\_centroid}: to derive a single point for each tract that should be approximately in its middle. It must be topologically contained within it, not fooled by an annulus ("doughnut") shape, for example.
+-   `st_make_valid()`\index{st\_make\_valid} : to make an invalid geometry valid (or just check for it). This function has just become essential now that `sf` supports spherical instead of just planar data, which ends up containing "slivers" where boundaries slightly under- or overlap since they were originally built from a planar projection. The `st_make_valid()` appears to make minor (and typically invisible) corrections to these slivers.
+-   `st_bbox` \index{st\_bbox}: reads the bounding box, or spatial extent, of any dataset, which we can then use to set the scale to focus on that area. In this case, we'll focus on the census centroids instead of the statewide `CAfreeways` for instance.
+
+Let's see the effect of the centroids and bbox. We'll start with all county centroids (Figure \@ref(fig:spanlCentroids)).
+
+```{r results="hide", warning=F, message=F}
+library(tidyverse); library(sf); library(igisci)
+CA_counties <- st_make_valid(CA_counties) # needed fix for data
+```
+
+```{r spanlCentroids, fig.cap="California county centroids", warning=F, message=F}
+ggplot() +
+  geom_sf(data=CA_counties) +
+  geom_sf(data=st_centroid(CA_counties))
+```
+
+Here's an example that also applies the \index{bbox}bounding box to establish a mapping scale that covers the Bay Area while some of the data (TRI locations and CAfreeways) are state-wide (Figure \@ref(fig:spanlBayAreaTracts)).
+
+```{r spanlBayAreaTracts, message=FALSE, warning=FALSE, fig.cap="Map scaled to cover Bay Area tracts using a bbox"}
+library(tidyverse)
+library(sf)
+library(igisci)
+BayAreaTracts <- st_make_valid(BayAreaTracts)
+censusCentroids <- st_centroid(BayAreaTracts)
+TRI_sp <- st_as_sf(read_csv(ex("TRI/TRI_2017_CA.csv")), 
+                   coords = c("LONGITUDE", "LATITUDE"), 
+                   crs=4326) # simple way to specify coordinate reference
+bnd <- st_bbox(censusCentroids)
+ggplot() +
+ geom_sf(data = BayAreaCounties, aes(fill = NAME)) +
+ geom_sf(data = censusCentroids) +
+ geom_sf(data = CAfreeways, color = "grey", alpha=0.5) +
+ geom_sf(data = TRI_sp, color = "yellow") +
+ coord_sf(xlim = c(bnd[1], bnd[3]), ylim = c(bnd[2], bnd[4])) +
+   labs(title="Bay Area Counties, Freeways and Census Tract Centroids")
+```
+
+
+
+### Distance
+
+\index{distance}Distance is a fundamental spatial measure, used to not only create spatial data (distance between points in surveying or distance to GNSS satellites) but also to analyze it. Note that we can either be referring to planar (from projected coordinate systems) or spherical (from latitude and longitude) great-circle distances. Two common spatial operations involving distance in vector spatial analysis are (a) deriving distances among features, and (b) creating buffer polygons of a specific distance away from features. In raster spatial analysis, we'll look at deriving distances from target features to each raster cell. 
+
+But first, let's take a brief excursion up the Nile River, using great circle distances to derive a longitudinal profile and channel slope...
+
+#### Great circle distances
+
+Earlier we created a simple river profile using Cartesian coordinates in metres for x, y, and z (elevation), but what if our xy locations are in geographic coordinates of latitude and longitude?  Using the haversine method, we can derive great-circle ("as the crow flies") distances between latitude and longitude pairs. The following function uses a haversine algorithm described at https://www.movable-type.co.uk/scripts/latlong.html (@haversine) to derive these distances in metres, provided lat/long pairs in degrees as `haversineD(lat1,lon1,lat2,lon2)`:
+```{r}
+haversineD <- function(lat1deg,lon1deg,lat2deg,lon2deg){
+  lat1 <- lat1deg/180*pi; lat2 <- lat2deg/180*pi # convert to radians
+  lon1 <- lon1deg/180*pi; lon2 <- lon2deg/180*pi
+  a <- sin((lat2-lat1)/2)^2 + cos(lat1)*cos(lat2)*sin((lon2-lon1)/2)^2
+  c <- 2*atan2(sqrt(a),sqrt(1-a))
+  c * 6.371e6 # mean earth radius is ~ 6.371 million metres
+}
+```
+
+We'll use these to help us derived channel slope where we need the longitudinal distance in metres along the Nile River, but we have locations in geographic coordinates (crs 4326). But first, here's a few quick checks on the function since I remember that 1 minute (1/60 degree) of latitude is equal to 1 nautical mile (NM) or ~1.15 statute miles, and the same applies to longitude at the equator. Then longitude is half that at 60 degrees north or south.  
+```{r results='hold'}
+paste("1'lat=",haversineD(30,120,30+1/60,120)/0.3048/5280,"miles at 30°N")
+paste("1'lat=",haversineD(30,120,30+1/60,120)/0.3048/6076,"NM at 30°N")
+paste("1'lon=",haversineD(0,0,0,1/60)/0.3048/6076,"NM at the equator")
+paste("1'lon=",haversineD(60,0,60,1/60)/0.3048/6076,"NM at 60°N")
+```
+
+Thanks to Stephanie Kate in my Fall 2020 Environmental Data Science course at SFSU, we have geographic coordinates and elevations in metres for a series of points along the Nile River, including various tributaries. We'll focus on the main to Blue Nile and generate a map (Figure \@ref(fig:spanlNileMap)) and longitudinal profile (Figure \@ref(fig:spanlNileLong)), using great circle distances along the channel. 
+```{r, results = 'hide'}
+library(igisci); library(tidyverse)
+bNile <- read_csv(ex("Nile/NilePoints.csv")) %>% 
+  filter(nile %in% c("main","blue")) %>%
+  arrange(elev_meter) %>%
+  mutate(d=0, longd=0, s=1e-6) # initiate distance, longitudinal distance & slope
+```
+```{r}
+for(i in 2:length(bNile$x)){
+  bNile$d[i] <- haversineD(bNile$y[i],bNile$x[i],bNile$y[i-1],bNile$x[i-1])
+  bNile$longd[i] <- bNile$longd[i-1] + bNile$d[i]
+  bNile$s[i-1] <- (bNile$elev_meter[i]-bNile$elev_meter[i-1])/bNile$d[i]
+}
+```
+```{r spanlNileMap, results="hide", fig.cap="Nile River points, colored by channel slope"}
+library(sf); library(tmap); library(maptiles)
+Nile_sf <- st_as_sf(bNile,coords=c("x","y"),crs=4326)
+nileBase <- get_tiles(Nile_sf, provider="Esri.NatGeoWorldMap")
+tm_shape(nileBase) + tm_graticules() + tm_rgb()  +
+  tm_shape(Nile_sf) + tm_dots(size=0.1,col="s",style="quantile",
+                                 palette=c("blue","red"))+
+  tm_layout(legend.position=c("RIGHT","TOP"),
+            legend.bg.color = "white",legend.bg.alpha=0.5)
+```
+
+
+```{r spanlNileLong, fig.cap="Nile River channel slope as range of colors from green to red, with great circle channel distances derived using the haversine method"}
+ggplot(bNile, aes(longd,elev_meter)) + geom_line(aes(col=s), size=1.5) +
+  scale_color_gradient(low="green", high="red") +
+  ggtitle("Nile River to Blue Nile longitudinal profile")
+```
+
+#### Distances among features
+
+\index{distance among features}The sf `st_distance` and terra `distance` functions derive distances between features, either among features of one data set object or between all features in one and all features in another data set.
+
+To see how this works, we'll look at a purposefully small dataset: a selection of Marble Mountains soil CO~2~ sampling sites and in-cave water quality sampling sites. We'll start by reading in the data, and filtering to just get cave water samples and a small set of nearby soil CO~2~ sampling sites:
+
+```{r results='hide'}
+library(igisci); library(sf); library(tidyverse)
+soilCO2all <- st_read(ex("marbles/co2july95.shp"))
+cave_H2Osamples <- st_read(ex("marbles/samples.shp")) %>%
+  filter((SAMPLES_ID >= 50) & (SAMPLES_ID < 60)) # these are the cave samples
+soilCO2 <- soilCO2all %>% filter(LOC > 20) # soil CO2 samples in the area
+```
+
+Figure \@ref(fig:spanlSelSoilCO2) shows the six selected soil CO~2~ samples.
+
+```{r spanlSelSoilCO2, fig.cap="Selection of soil CO2 sampling sites, July 1995", message=F}
+library(tmap); library(maptiles)
+marblesTopoBase <- get_tiles(soilCO2, provider="OpenTopoMap") 
+tmap_mode("plot")
+tm_shape(marblesTopoBase) + tm_graticules() + tm_rgb() +
+  tm_shape(soilCO2) + tm_symbols(col="CO2_", palette="Reds", size=4)# +
+#  tm_shape(soilCO2) + tm_text("LOC")
+```
+
+If you just provide the six soil CO~2~ sample points as a single feature data set input to the st_distance function, it returns a matrix of distances between each, with a diagonal of zeros where the distance would be to itself:
+
+```{r}
+st_distance(soilCO2)
+```
+
+Then we'll look at \index{distances}distances between this same set of soil CO~2~ samples with water samples collected in caves, where the effect of elevated soil CO~2~ values might influence solution processes reflected in cave waters (Figure \@ref(fig:spanlSoilH2O)).
+
+```{r spanlSoilH2O, message=F, fig.cap="Selection of soil CO2 and in-cave water samples"}
+library(tmap)
+tmap_mode("plot")
+marblesTopoBase <- get_tiles(soilCO2, provider="OpenTopoMap") 
+
+tm_shape(marblesTopoBase) + tm_graticules() + tm_rgb() +
+  tm_shape(cave_H2Osamples) + tm_symbols(col="CATOT", palette="Blues") +
+  tm_shape(soilCO2) + tm_symbols(col="CO2_", palette="Reds")
+```
+
+```{r message=F, warning=F}
+soilwater <- st_distance(soilCO2, cave_H2Osamples)
+soilwater
+```
+
+In this case, the six soil CO~2~ samples are the rows, and the seven cave water sample locations are the columns. We aren't really relating the values but just looking at distances. An analysis of this data might not be very informative because the caves aren't very near the soil samples, and conduit cave hydrology doesn't lend itself to looking at euclidean distance, but the purpose of this example is just to comprehend the results of the `sf::st_distance` or similarly the `terra::distance` function.
+
+#### Distance to the nearest feature, abstracted from distance matrix
+
+\index{distance to the nearest feature}However, let's process the matrix a bit to find the distance from each soil CO~2~ sample to the closest cave water sample:
+
+```{r message=F, warning=F}
+soilCO2d <- soilCO2 %>% mutate(dist2cave = min(soilwater[1,]))
+for (i in 1:length(soilwater[,1])) soilCO2d[i,"dist2cave"] <- min(soilwater[i,])
+soilCO2d %>% dplyr::select(DESCRIPTIO, dist2cave) %>% st_set_geometry(NULL)
+```
+
+... or since we can also look at distances to lines or polygons, we can find the distance from CO~2~ sampling locations to the closest stream (Figure \@ref(fig:spanlDistCO2streams)),
+
+```{r results='hide', message=F, warning=F}
+library(igisci); library(sf); library(tidyverse)
+soilCO2all <- st_read(ex("marbles/co2july95.shp"))
+streams <- st_read(ex("marbles/streams.shp"))
+```
+
+```{r message=F, warning=F}
+strCO2 <- st_distance(soilCO2all, streams)
+strCO2d <- soilCO2all %>% mutate(dist2stream = min(strCO2[1,]))
+for (i in 1:length(strCO2[,1])) strCO2d[i,"dist2stream"] <- min(strCO2[i,])
+```
+
+```{r spanlDistCO2streams, message=F, warning=F, fig.cap="Distance from CO2 samples to closest streams (not including lakes)"}
+marblesTopoBase <- get_tiles(soilCO2, provider="OpenTopoMap") 
+tm_shape(marblesTopoBase) + tm_graticules() + tm_rgb() +
+  tm_shape(streams) + tm_lines(col="blue") +
+  tm_shape(strCO2d) + tm_symbols(col="dist2stream")
+```
+
+#### Nearest feature detection
+
+\index{nearest feature detection}As we just saw, the matrix derived from `st_distance` when applied to feature data sets could be used for further analyses, such as this distance to the nearest place. But there's another approach to this using a specific function that identifies the nearest feature: \index{st\_nearest\_feature}`st_nearest_feature`, so we'll look at this with the previously filtered northern Sierra places and weather stations. We start by using `st_nearest_feature` to create an index vector of the nearest place to each station, and grab its location geometry:
+
+```{r}
+nearest_Place <- st_nearest_feature(nSierraStations, nSierraPlaces)
+near_Place_loc <- nSierraPlaces$geometry[nearest_Place]
+```
+
+Then add the distance to that nearest place to our `nSierraStations` `sf`. Note that we're using `st_distance` with two vector inputs as before, but ending up with just one distance per feature (instead of a matrix) with the setting `by_element=TRUE`...
+
+```{r}
+nSierraStations <- nSierraStations %>%
+  mutate(d2Place = st_distance(nSierraStations, near_Place_loc, by_element=TRUE),
+         d2Place = units::drop_units(d2Place))
+```
+
+... and of course map the results (Figure \@ref(fig:spanlDistStations)):
+
+```{r spanlDistStations, fig.cap="Distance to towns (places) from weather stations"}
+sierraStreetBase <- get_tiles(nSierraStations, provider="OpenStreetMap") 
+tm_shape(sierraStreetBase) + tm_graticules() + tm_rgb() + 
+  tm_shape(nSierraCo) + tm_borders() + tm_text("NAME") +
+  tm_shape(nSierraStations) + tm_symbols(col="d2Place") +
+  tm_shape(nSierraPlaces) + tm_symbols(col="blue", alpha=0.5, size=0.5, shape=24)
+```
+
+That's probably enough examples of using distance to nearest feature so we can see how it works, but to see an example with a larger data set, an example in **Appendix A7.2** looks at the proximity of TRI sites to health data at census tracts.
+
+### Buffers
+
+\index{buffers}Creating buffers, or polygons defining the area within some distance of a feature, is commonly used in GIS. Since you need to specify that distance (or read it from a variable for each feature), you need to know what the horizontal distance units are for your data. If GCS, these will be decimal degrees and 1 degree is a long way, about 111 km (or 69 miles), though that differs for longitude where 1 degree of longitude is 111 km \* cos(latitude). If in UTM, the horizontal distance will be in metres, but in the US, state plane coordinates are typically in feet. So let's read the trails shapefile from the Marble Mountains and look for its units:
+
+```{r getUnits, results='hide'}
+library(igisci)
+library(sf); library(tidyverse)
+trails <- st_read(ex("marbles/trails.shp"))
+```
+
+Then we know we're in metres, so we'll create a 100 m buffer this way (Figure \@ref(fig:spanlTrailBuffer)).
+
+```{r spanlTrailBuffer, fig.cap="100 m trail buffer, Marble Mountains"}
+trail_buff0 <- st_buffer(trails,100)
+ggplot(trail_buff0) + geom_sf()
+```
+
+#### The `units` package
+
+\index{units}Since the spatial data are in UTM, we can just specify the distance in metres. However if the data were in decimal degrees of latitude and longitude (GCS), we would need to let the function know that we're providing it metres so it can transform that to work with the GCS, using `units::set_units(100, "m")` instead of just `100`, for the above example where we are creating a 100 m buffer.
+
+### Spatial overlay: union and intersection
+
+\index{overlay}Overlay operations are described in the `sf` cheat sheet under "Geometry operations". These are useful to explore, but a couple we'll look at are union and intersection.
+
+Normally these methods have multiple inputs, but we'll start with one that can also be used to dissolve boundaries, \index{st\_union}**`st_union`** -- if only one input is provided it appears to do a dissolve (Figure \@ref(fig:spanlUnionBuffer)):
+
+```{r spanlUnionBuffer, fig.cap="Unioned trail buffer, dissolving boundaries"}
+trail_buff <- st_union(trail_buff0)
+ggplot(trail_buff) + geom_sf()
+```
+
+For a clearer example with the normal multiple input, we'll \index{intersect}**intersect** a 100 m buffer around streams and a 100 m buffer around trails \index{st\_intersect}...
+
+```{r intersection, message=F, results='hide', warning=F}
+streams <- st_read(ex("marbles/streams.shp"))
+trail_buff <- st_buffer(trails, 100)
+str_buff <- st_buffer(streams,100)
+strtrInt <- st_intersection(trail_buff,str_buff)
+```
+
+...to show areas that are close to streams and trails (Figure \@ref(fig:spanlIntTrailStrBuff)):
+
+```{r spanlIntTrailStrBuff, fig.cap="Intersection of trail and stream buffers", warning=F, message=F}
+ggplot(strtrInt) + geom_sf(fill="green") + 
+  geom_sf(data=trails, col="red") +
+  geom_sf(data=streams, col="blue")
+```
+
+Or how about a union of these two buffers? We'll also dissolve the boundaries using union with a single input (the first union) to dissolve those internal overlays (Figure \@ref(fig:spanlUnion2buffs)):
+
+```{r spanlUnion2buffs, fig.cap="Union of two sets of buffer polygons", warning=F, message=F}
+strtrUnion <- st_union(st_union(trail_buff,str_buff))
+ggplot(strtrUnion) + geom_sf(fill="green") + 
+  geom_sf(data=trails, col="red") +
+  geom_sf(data=streams, col="blue")
+```
+
+### Clip with st_crop
+
+\index{clip}\index{st\_crop}Clipping a GIS layer to a rectangle (or to a polygon) is often useful. We'll clip to a rectangle based on latitude and longitude limits we'll specify, however since our data is in UTM, we'll need to use **`st_transform`** to get it to the right coordinates (Figure \@ref(fig:spanlCrop)).
+
+```{r spanlCrop, fig.cap="Cropping with specified x and y limits"}
+xmin=-123.21; xmax=-123.18; ymin=41.55; ymax=41.57
+clipMatrix <- rbind(c(xmin,ymin),c(xmin,ymax),c(xmax,ymax),
+                    c(xmax,ymin),c(xmin,ymin))
+clipGCS <- st_sfc(st_polygon(list(clipMatrix)),crs=4326)
+bufferCrop <- st_crop(strtrUnion,st_transform(clipGCS,crs=st_crs(strtrUnion)))
+bnd <- st_bbox(bufferCrop)
+ggplot(bufferCrop) + geom_sf(fill="green") + 
+  geom_sf(data=trails, col="red") +
+  geom_sf(data=streams, col="blue") +
+  coord_sf(xlim = c(bnd[1], bnd[3]), ylim = c(bnd[2], bnd[4]))
+```
+
+#### sf or terra for vector spatial operations?
+
+Note: there are other geometric operations in `sf` beyond what we've looked at. See the cheat sheet and other resources at <https://r-spatial.github.io/sf> .
+
+The `terra` system also has many vector tools (such as `terra::union` and `terra::buffer`), that work with and create SpatVector spatial data objects. As noted earlier, these S4 spatial data can be created from (S3) sf data with `terra::vect` and vice versa with `sf::st_as_sf`. We'll mostly focus on sf for vector and terra for raster, but to learn more about SpatVector data and operations in terra, see <https://rspatial.org>.
+
+For instance, there's a similar `terra` operation for one of the things we just did, but instead of using `union` to dissolve the internal boundaries like `st_union` did, uses \index{aggregate}`aggregate` to remove boundaries between polygons with the same codes:
+
+```{r echo=F}
+library(terra); library(igisci)
+```
+
+```{r eval=F}
+trails <- vect(ex("marbles/trails.shp"))
+trailbuff <- aggregate(buffer(trails,100))
+plot(trailbuff)
+```
+
+### Spatial join with `st_join`
+
+\index{st\_join}A spatial join can do many things, but we'll just look at its simplest application -- connecting a point with the polygon that it's in. In this case, we want to join the attribute data in `BayAreaTracts` with EPA Toxic Release Inventory (TRI) point data (at factories and other point sources) and then display a few ethnicity variables from the census, associated spatially with the TRI point locations. We'll be making better maps later; this is a quick `plot()` display to show that the spatial join worked (Figure \@ref(fig:spanlTRIspatialJoin)).
+
+```{r spanlTRIspatialJoin, message=FALSE, fig.cap="TRI points with census variables added via a spatial join", warning=F}
+library(igisci); library(tidyverse); library(sf)
+TRI_sp <- st_as_sf(read_csv(ex("TRI/TRI_2017_CA.csv")), 
+                   coords = c("LONGITUDE", "LATITUDE"), crs=4326) %>%
+  st_join(st_make_valid(BayAreaTracts)) %>%
+  filter(!is.na(TRACT)) %>%  # removes points not in BayAreaTracts
+  dplyr::select(POP2012:HISPANIC)
+plot(TRI_sp)
+```
+
+### Further exploration of spatial analysis
+
+We've looked at a small selection of spatial analysis functions; there's a lot more we can do, and the R spatial world is rapidly growing. There are many other methods discussed in the "Spatial data operations" and "Geometry operations" chapters of *Geocomputation* (<https://geocompr.robinlovelace.net/>, @Geocomputation) that are worth exploring, and still others in the `terra` package described at <https://rspatial.org>, @rspatial.  
+
+For example, getting a good handle on coordinate systems is certainly an important area to learn more about, and you will find coverage of transformation and reprojection methods in the "Reprojecting geographic data" and data access methods in the "Geographic data I/O" chapter of *Geocomputation*, and in the "Coordinate Reference Systems" section of https://rspatial.org. The Simple Features for R reference (@sf) site includes a complete reference for all of its functions, as does <https://rspatial.org> for `terra`.
+
+And then there's analysis of raster data, but we'll leave that for the next chapter.
+
+\pagebreak
+## Exercises: Spatial Analysis
+```{r echo=FALSE}
+knitr::opts_chunk$set(include=F)
+```
+
+:::{.exercise}
+**Maximum Elevation** Assuming you wrote them in the last chapter, read in your western states "data/W_States.shp" and peaks "data/peaks.shp" data, then use a spatial join to add the peak points to the states to provide a new attribute maximum elevation, and display that using geom_sf_text() with the state polygons. Note that joining from the states to the peaks works because there's a one-to-one correspondence between states and maximum peaks. (If you didn't write them, you'll need to repeat your code that built them from the previous chapter.)
+:::
+
+```{r, results='hide'}
+library(sf); library(tidyverse)
+W_States <- st_read("data/W_States.shp")
+peaksp <- st_read("data/peaks.shp")
+```
+
+```{r spanlGoalMaxElev, out.width="60%"}
+W_States %>%
+  st_join(peaksp) %>%
+  ggplot() + geom_sf() + geom_sf_text(aes(label=elev))
+```
+
+:::{.exercise}
+Using two shape files of your own choice, not from igisci, read them in as sf data, and perform a spatial join to join the polygons to the point data. Then display the point feature data frame, and create a ggplot scatter plot or boxplot graph where the two variables are related, preferably with a separate categorical variable to provide color.
+:::
+
+:::{.exercise}
+From the above spatially joined data create a map where the points are colored by data brought in from the spatial join; can be either a categorical or continuous variable.
+:::
+
+:::{.exercise}
+**Transect Buffers**: Using data from the `SFmarine` folder in igisci extdata, `transects.shp` (`ex("SFmarine/transects.shp")`) and `mainland.shp`(to make a nicer map showing land for reference), use `st_buffer` to create 1000 m buffers around the transect points, merged to remove boundaries (Figure \@ref(fig:TransectBuffersGoal)). 
+:::
+
+```{r results="hide"}
+library(igisci); library(sf); library(tidyverse); library(tmap)
+transects <- st_read(ex("SFmarine/transects.shp"))
+mainland <- st_read(ex("SFmarine/mainland.shp"))
+transectBuf <- st_union(st_buffer(transects, 1000))
+bounds <- st_bbox(transectBuf)
+tm_shape(mainland,bbox=bounds) + tm_graticules() + tm_polygons(col="wheat2") +
+tm_shape(transectBuf) + tm_polygons(col="yellow2") + tm_layout(bg.color="lightblue")
+  
+```
+
+```{r TransectBuffersGoal, include=T, eval=T, echo=F, out.width='40%', fig.align="center", fig.cap="Transect Buffers (goal)"}
+knitr::include_graphics(here::here("img","goal_spanlTransectBuffers.png"))
+```
+
+:::{.exercise}
+Create an sf that represents all areas within 50 km of a TRI facility in California that has \>10,000 pounds of total stack air release for all gases, clipped (intersected) with the state of California as provided in the CA counties data set. Then use this to create a map of California showing the clipped buffered areas in red, with California counties and those selected large-release TRI facilities in black dots, as shown here. To create a variable representing 50 km to provide to the dist parameter in st_buffer [this is needed since the spatial data are in GCS], use the units::set_units function, something like this: `D50km <- units::set_units(50, "km")`. See the first figure in this chapter for your goal.
+:::
+```{r, results='hide'}
+library(igisci); library(sf); library(tidyverse)
+TRI_pts_df <- read_csv(ex("TRI/TRI_2017_CA.csv")) %>% 
+  group_by(FACILITY_NAME) %>% 
+                      summarize(FACILITY_NAME=first(FACILITY_NAME), 
+                                LONGITUDE=first(LONGITUDE), 
+                                LATITUDE=first(LATITUDE),
+                                STACK_AIR=sum(`5.2_STACK_AIR`)) %>%
+  filter(STACK_AIR > 10000)
+TRI_pts <- st_as_sf(TRI_pts_df, coords = c("LONGITUDE","LATITUDE"), crs=4326)
+D50km <- units::set_units(50, "km")
+TRI_50kBuff <- st_union(st_buffer(TRI_pts, dist = D50km))
+CATRI <- st_intersection(st_make_valid(TRI_50kBuff), st_make_valid(CA_counties))
+CATRI <- st_union(CATRI)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data=CATRI, fill="red") +
+  geom_sf(data=CA_counties, fill=NA) + 
+  geom_sf(data=TRI_pts)
+
+```
+
