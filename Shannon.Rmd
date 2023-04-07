@@ -1,0 +1,36 @@
+---
+title: "ShannonDiversity"
+author: "Jerry Davis"
+date: "2023-04-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Shannon diversity index manual
+
+
+
+```{r cars}
+set.seed(42)
+pop = runif(100, min=0, max=1)
+n = pop
+N = sum(pop)
+p = n/N
+H = -sum(p*log(p))
+H
+pop5 = pop * 5
+n5 = pop5
+N5 = sum(pop5)
+p5 = n5/N5
+H5 = -sum(p5*log(p5))
+H5
+```
+```{r}
+library(vegan)
+H2 = diversity(pop, "shannon")
+H2
+```
+
